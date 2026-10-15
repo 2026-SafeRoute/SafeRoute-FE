@@ -16,7 +16,9 @@ const formatRouteSegment = (segment?: RouteSegment) => {
   if (nodeCount === 0) return '현재 대피 경로 정보가 없습니다.';
 
   const weight = segment?.totalWeight;
-  return weight === undefined ? `${nodeCount}개 지점` : `${nodeCount}개 지점 · 가중치 ${weight}`;
+  return weight === undefined
+    ? `${nodeCount}개 지점`
+    : `${nodeCount}개 지점 · 가중치 ${weight.toFixed(1)}`;
 };
 
 export const formatRouteProposal = (detail: RouteRecalculationDetailResponse | undefined) => {
