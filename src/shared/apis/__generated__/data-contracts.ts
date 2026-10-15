@@ -659,7 +659,7 @@ export interface CurrentCctvStateListResponse {
 /** CCTV 한 대의 현재 혼잡 상태 */
 export interface CurrentCctvStateResponse {
   /**
-   * 최근 5초 관측 구간의 평균 인원. 상태가 없으면 null
+   * 최근 관측 구간의 평균 인원. 상태가 없으면 null
    * @format double
    * @example 8.6
    */
@@ -719,7 +719,7 @@ export interface CurrentCctvStateResponse {
    */
   location?: string;
   /**
-   * 최근 5초 관측 구간의 순간 최대 인원. 상태가 없으면 null
+   * 최근 관측 구간의 순간 최대 인원. 상태가 없으면 null
    * @format int32
    * @example 12
    */
@@ -1465,7 +1465,7 @@ export interface MonitoringFrameResponse {
   /**
    * 이 프레임이 속한 분석 구간의 시작 시각(Unix epoch milliseconds)
    * @format int64
-   * @example 1787722090000
+   * @example 1787722094000
    */
   windowStart?: number;
 }
@@ -1698,7 +1698,7 @@ export interface RouteRecalculationDetailResponse {
   trainingSessionId?: string;
   /** @format uuid */
   triggerEdgeId?: string;
-  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED";
+  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED" | "FIRE_SPREAD";
 }
 
 export interface RouteRecalculationResponse {
@@ -1741,7 +1741,7 @@ export interface RouteRecalculationSummaryResponse {
   trainingSessionId?: string;
   /** @format uuid */
   triggerEdgeId?: string;
-  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED";
+  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED" | "FIRE_SPREAD";
 }
 
 export interface RouteSegment {
