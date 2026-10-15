@@ -84,10 +84,8 @@ export async function uploadFloor(
 ): Promise<Floor> {
   const form = new FormData();
   form.append('floorNum', String(floorNum));
-  // 스웨거 확인 결과 realWidth/realHeight는 센티미터 단위라 미터 입력값을 100배 해서 보냄
-  // (안 그러면 "80m"가 "80cm"로 저장되어 그리드가 비정상적으로 성기게 계산됨)
-  form.append('realWidth', String(realWidthM * 100));
-  form.append('realHeight', String(realHeightM * 100));
+  form.append('realWidth', String(realWidthM));
+  form.append('realHeight', String(realHeightM));
   form.append('file', file);
   const floor = await apiRequest<FloorResponse, FormData>({
     method: HTTP_METHOD.POST,
