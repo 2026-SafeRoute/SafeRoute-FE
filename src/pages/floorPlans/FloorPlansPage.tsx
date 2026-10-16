@@ -229,9 +229,8 @@ const FloorCard = ({
 const FloorPlansPage = () => {
   const navigate = useNavigate();
   const { show } = useToast();
-  const { data: runningSessions = [] } = useGetTrainingSessionsQuery(
-    TRAINING_SESSION_STATUS.RUNNING,
-  );
+  const { data: runningSessions = [], isPending: isRunningSessionsPending } =
+    useGetTrainingSessionsQuery(TRAINING_SESSION_STATUS.RUNNING);
   const lockedBuildingIds = useMemo(
     () =>
       new Set(
@@ -273,16 +272,24 @@ const FloorPlansPage = () => {
   // 목록을 보고 있는 사이 훈련이 시작되면 열려 있던 업로드 흐름도 닫는다. 실제 요청 시점의
   // 경합은 서버 FLOOR004가 한 번 더 막는다.
   useEffect(() => {
-    if (uploadTarget && lockedBuildingIds.has(uploadTarget.buildingId)) setUploadTarget(null);
-    if (reuploadTarget && lockedBuildingIds.has(reuploadTarget.buildingId)) {
+    if (
+      uploadTarget &&
+      (isRunningSessionsPending || lockedBuildingIds.has(uploadTarget.buildingId))
+    )
+      setUploadTarget(null);
+    if (
+      reuploadTarget &&
+      (isRunningSessionsPending || lockedBuildingIds.has(reuploadTarget.buildingId))
+    ) {
       setReuploadTarget(null);
     }
     setPendingUpload((current) => {
-      if (!current || !lockedBuildingIds.has(current.buildingId)) return current;
+      if (!current || (!isRunningSessionsPending && !lockedBuildingIds.has(current.buildingId)))
+        return current;
       URL.revokeObjectURL(current.previewUrl);
       return null;
     });
-  }, [lockedBuildingIds, reuploadTarget, uploadTarget]);
+  }, [isRunningSessionsPending, lockedBuildingIds, reuploadTarget, uploadTarget]);
 
   const handleOpenFloorUpload = (target: FloorActionTarget) => {
     setUploadTarget({
@@ -301,7 +308,8 @@ const FloorPlansPage = () => {
 
   // 파일 선택 단계 — 실제 업로드는 다음 단계(가로/세로 입력)에서 함께 이뤄짐
   const handleFileSelected = (file: File) => {
-    if (!uploadTarget || lockedBuildingIds.has(uploadTarget.buildingId)) return;
+    if (!uploadTarget || isRunningSessionsPending || lockedBuildingIds.has(uploadTarget.buildingId))
+      return;
     setPendingUpload({ ...uploadTarget, file, previewUrl: URL.createObjectURL(file) });
     setUploadTarget(null);
   };
@@ -316,7 +324,13 @@ const FloorPlansPage = () => {
     realHeightM: number;
     cellSizeCm: number;
   }) => {
-    if (!pendingUpload || isUploading || lockedBuildingIds.has(pendingUpload.buildingId)) return;
+    if (
+      !pendingUpload ||
+      isUploading ||
+      isRunningSessionsPending ||
+      lockedBuildingIds.has(pendingUpload.buildingId)
+    )
+      return;
     const { buildingId, buildingName, floorNum, file, previewUrl, isReupload } = pendingUpload;
     setIsUploading(true);
     uploadFloor(buildingId, floorNum, file, params.realWidthM, params.realHeightM)
@@ -432,9 +446,9 @@ const FloorPlansPage = () => {
                 <div className={styles.buildingDot} aria-hidden="true" />
                 <span className={styles.buildingName}>{building.name}</span>
                 <span className={styles.buildingCount}>{building.floors.length}개 층</span>
-                {lockedBuildingIds.has(building.id) && (
+                {(isRunningSessionsPending || lockedBuildingIds.has(building.id)) && (
                   <span id={`floor-edit-lock-${building.id}`} className={styles.editingLockBadge}>
-                    훈련 진행 중 · 편집 잠금
+                    {isRunningSessionsPending ? '훈련 상태 확인 중' : '훈련 진행 중 · 편집 잠금'}
                   </span>
                 )}
               </div>
@@ -448,7 +462,7 @@ const FloorPlansPage = () => {
                       floor={floor}
                       buildingId={building.id}
                       buildingName={building.name}
-                      editingLocked={lockedBuildingIds.has(building.id)}
+                      editingLocked={isRunningSessionsPending || lockedBuildingIds.has(building.id)}
                       editingLockHintId={`floor-edit-lock-${building.id}`}
                       onUpload={setUploadTarget}
                       onReupload={setReuploadTarget}

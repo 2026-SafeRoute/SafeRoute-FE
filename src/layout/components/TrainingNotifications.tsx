@@ -65,7 +65,10 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
       blockedAt,
       blockedAfterSec,
     }: Pick<EvacuationRouteBlockedEventData, 'blockedAt' | 'blockedAfterSec'>) => {
-      const eventKey = blockedAt || String(blockedAfterSec);
+      const blockedAtEpoch = Date.parse(blockedAt);
+      const eventKey = Number.isNaN(blockedAtEpoch)
+        ? `elapsed:${blockedAfterSec}`
+        : `blocked-at:${blockedAtEpoch}`;
       if (lastRouteBlockedEvent.current === eventKey) return;
       lastRouteBlockedEvent.current = eventKey;
       show({

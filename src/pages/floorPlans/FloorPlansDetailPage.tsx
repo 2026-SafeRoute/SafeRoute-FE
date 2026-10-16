@@ -200,11 +200,11 @@ const FloorPlansDetailPage = () => {
   const queryClient = useQueryClient();
   const { buildingId, floorId } = useParams<{ buildingId: string; floorId: string }>();
   const { show } = useToast();
-  const { data: runningSessions = [] } = useGetTrainingSessionsQuery(
-    TRAINING_SESSION_STATUS.RUNNING,
-  );
+  const { data: runningSessions = [], isPending: isRunningSessionsPending } =
+    useGetTrainingSessionsQuery(TRAINING_SESSION_STATUS.RUNNING);
   const editingLocked = Boolean(
-    buildingId && runningSessions.some((session) => session.buildingId === buildingId),
+    isRunningSessionsPending ||
+    (buildingId && runningSessions.some((session) => session.buildingId === buildingId)),
   );
   const layoutRef = useRef<HTMLDivElement>(null);
   const [isCompactLayout, setIsCompactLayout] = useState(false);
@@ -322,6 +322,9 @@ const FloorPlansDetailPage = () => {
   useEffect(() => {
     if (!editingLocked) return;
     resetFloorScopedState();
+    if (!isRunningSessionsPending) {
+      void queryClient.invalidateQueries({ queryKey: floorQueryKeys.graph(floorId) });
+    }
     setUploadModalOpen(false);
     setGridSetupPromptOpen(false);
     setGridSetupIntent(null);
@@ -333,7 +336,7 @@ const FloorPlansDetailPage = () => {
       if (current) URL.revokeObjectURL(current.previewUrl);
       return null;
     });
-  }, [editingLocked, resetFloorScopedState]);
+  }, [editingLocked, floorId, isRunningSessionsPending, queryClient, resetFloorScopedState]);
 
   // 분석이 끝나면(DONE) 노드·엣지는 아래 맵그래프 effect가 isFloorReady 전환으로 자동 재조회하고,
   // 그리드 셀은 배율 재적용 effect가 다시 받아온다 — 별도의 페이지 새로고침은 필요 없음
@@ -2589,12 +2592,17 @@ const FloorPlansDetailPage = () => {
         {/* ── 좌측 사이드바 ── */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarInner} style={{ padding: '2rem 2rem 2.4rem' }}>
-            {editingLocked && (
-              <div id={EDITING_LOCK_HINT_ID} className={styles.editingLockNotice} role="status">
-                훈련 진행 중에는 도면·노드·구역·기기 설정을 변경할 수 없습니다. 기기
-                활성화·비활성화는 계속 사용할 수 있습니다.
-              </div>
-            )}
+            <div
+              id={EDITING_LOCK_HINT_ID}
+              className={editingLocked ? styles.editingLockNotice : undefined}
+              role="status"
+            >
+              {editingLocked
+                ? isRunningSessionsPending
+                  ? '훈련 진행 여부를 확인하는 동안 도면 편집을 잠시 사용할 수 없습니다.'
+                  : '훈련 진행 중에는 도면·노드·구역·기기 설정을 변경할 수 없습니다. 기기 활성화·비활성화는 계속 사용할 수 있습니다.'
+                : ''}
+            </div>
 
             {/* 층 목록 */}
             <div className={styles.floorNavCard}>
