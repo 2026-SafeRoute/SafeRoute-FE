@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router';
 
+import { useGetTrainingStatusQuery } from '@pages/home/api/useTrainingStatusQuery';
+import type { RunningTrainingStatusResponse } from '@pages/home/types/home';
 import { monitoringQueryKeys } from '@pages/trainingAnalysis/api/monitoringQueryKeys';
 import { useSessionContextQuery } from '@pages/trainingAnalysis/api/useSessionContextQuery';
 import type { TrainingSessionContext } from '@pages/trainingAnalysis/types/trainingAnalysis';
@@ -17,6 +19,7 @@ import { trainingSessionQueryKeys } from '@apis/trainingSessions/trainingSession
 import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTrainingSessionsQuery';
 import { TRAINING_EVENT_TYPE } from '@apis/trainingSessions/websocket/trainingSessionEvents';
 import type {
+  EvacuationRouteBlockedEventData,
   TrainingSessionEvent,
   TrainingStatusEventData,
 } from '@apis/trainingSessions/websocket/trainingSessionEvents';
@@ -25,6 +28,8 @@ import { useTrainingSessionSocket } from '@apis/trainingSessions/websocket/useTr
 import useToast from '@components/toast/useToast';
 
 import { getScenarioDetailPath, ROUTES } from '@constants/path';
+
+import { formatDuration } from '@utils/format';
 
 interface SessionNotificationProps {
   session: TrainingSessionSummaryResponse;
@@ -41,17 +46,37 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: context } = useSessionContextQuery(session.sessionId);
+  const { data: trainingStatus } = useGetTrainingStatusQuery(session.sessionId);
   const timedOut = context?.status === TRAINING_SESSION_STATUS.FAILED;
   const interrupted =
     context?.status === TRAINING_SESSION_STATUS.STOPPED ||
     context?.status === TRAINING_SESSION_STATUS.CANCELLED;
   const completed = context?.status === TRAINING_SESSION_STATUS.COMPLETED;
   const lastRouteEvent = useRef<string>();
+  const lastRouteBlockedEvent = useRef<string>();
   const isScenarioPage = Boolean(
     session.scenarioId && pathname === getScenarioDetailPath(session.scenarioId),
   );
   const isTrainingAnalysisPage =
     pathname === ROUTES.TRAINING_ANALYSIS || pathname.startsWith(`${ROUTES.TRAINING_ANALYSIS}/`);
+
+  const showRouteBlockedWarning = useCallback(
+    ({
+      blockedAt,
+      blockedAfterSec,
+    }: Pick<EvacuationRouteBlockedEventData, 'blockedAt' | 'blockedAfterSec'>) => {
+      const eventKey = blockedAt || String(blockedAfterSec);
+      if (lastRouteBlockedEvent.current === eventKey) return;
+      lastRouteBlockedEvent.current = eventKey;
+      show({
+        title: '대피 가능한 경로가 모두 차단되었습니다.',
+        description: `화재 확산으로 시작 지점에서 출구까지 이동할 수 없습니다.\n(훈련 시작 ${formatDuration(blockedAfterSec)} 후)`,
+        variant: 'warning',
+        duration: 0,
+      });
+    },
+    [show],
+  );
 
   useTrainingSessionSocket({
     sessionId: session.sessionId,
@@ -82,6 +107,11 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
           queryKey: monitoringQueryKeys.context(event.sessionId),
         });
       }
+      if (event.eventType === TRAINING_EVENT_TYPE.EVACUATION_ROUTE_BLOCKED) {
+        const blockedEvent = event as TrainingSessionEvent<EvacuationRouteBlockedEventData>;
+        showRouteBlockedWarning(blockedEvent.data);
+        return;
+      }
       if (event.eventType !== TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_REQUESTED) return;
       if (lastRouteEvent.current === event.occurredAt) return;
       lastRouteEvent.current = event.occurredAt;
@@ -98,6 +128,20 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
       });
     },
   });
+
+  useEffect(() => {
+    const runningStatus = trainingStatus as RunningTrainingStatusResponse | undefined;
+    if (
+      !runningStatus?.routeBlockedAt ||
+      runningStatus.routeBlockedAfterSec === null ||
+      runningStatus.routeBlockedAfterSec === undefined
+    )
+      return;
+    showRouteBlockedWarning({
+      blockedAt: runningStatus.routeBlockedAt,
+      blockedAfterSec: runningStatus.routeBlockedAfterSec,
+    });
+  }, [showRouteBlockedWarning, trainingStatus]);
 
   useEffect(() => {
     if (!context?.status || isActiveSessionStatus(context.status)) return;

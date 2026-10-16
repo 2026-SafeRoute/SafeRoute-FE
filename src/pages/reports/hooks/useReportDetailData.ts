@@ -3,6 +3,8 @@ import { useTrainingReportQuery } from '@apis/reports/useReports';
 import { useGetScenariosQuery } from '@apis/scenarios/useScenariosQuery';
 import { useMyProfileQuery } from '@apis/users/useMyProfileQuery';
 
+import { formatDuration } from '@utils/format';
+
 import {
   formatTrainingDate,
   toCumulativeEvacuation,
@@ -39,6 +41,14 @@ export const useReportDetailData = (reportId: string) => {
                 ? '-'
                 : `${scenario.expectedParticipants}명`,
           },
+          ...(report.routeBlockedAfterSec === undefined || report.routeBlockedAfterSec === null
+            ? []
+            : [
+                {
+                  label: '화재 경로 차단 시점',
+                  value: `훈련 시작 ${formatDuration(report.routeBlockedAfterSec)} 후`,
+                },
+              ]),
         ],
         summary: toReportSummary(report),
         scores: toReportScores(report),
