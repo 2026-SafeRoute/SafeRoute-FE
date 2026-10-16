@@ -1652,6 +1652,12 @@ export interface ReportResponse {
   reportId?: string;
   /** @format double */
   riskIndex?: number;
+  /**
+   * 화재 확산으로 시작 지점에서 출구로 가는 대피 경로가 모두 막히기까지 걸린 시간(초, 훈련 시작 기준). 훈련 중 한 번도 막히지 않았으면 null. 점수에는 반영하지 않는 참고 지표다 - 시스템은 이 층 그래프 밖(아래층 계단 등)의 대피 수단과 실제 사람 위치를 모르므로 실패 판정 근거로 쓰지 않는다. 이 필드가 추가되기 전에 생성된 리포트는 null이다.
+   * @format int32
+   * @example 95
+   */
+  routeBlockedAfterSec?: number;
   summaryText?: string;
   survivalRate?: number;
   /** @format int32 */
