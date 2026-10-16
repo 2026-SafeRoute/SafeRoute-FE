@@ -9,11 +9,12 @@ import Dropdown from '@components/dropdown';
 
 import { formatAreaM2 } from '@utils/format';
 
-import LightPickField, { getLightPickHint } from './LightPickField';
+import LightPickField from './LightPickField';
 import * as styles from '../FloorPlansDetailPage.css';
+import { getLightPickHint } from '../utils/lightPick';
 
-import type { LightPickFieldName } from './LightPickField';
 import type { DeviceEditForm, PanelItem } from '../types/panelItem';
+import type { LightPickFieldName } from '../utils/lightPick';
 
 interface DeviceCardProps {
   item: PanelItem;
@@ -22,6 +23,8 @@ interface DeviceCardProps {
   editForm: DeviceEditForm;
   // 폼이 원본과 달라졌는지 — "완료" 버튼을 실제로 바뀐 게 있을 때만 눌리게 하는 데 씀
   hasChanges: boolean;
+  editingLocked?: boolean;
+  editingLockHintId?: string;
   onEditFormChange: (form: DeviceEditForm) => void;
   onSelect: (item: PanelItem) => void;
   onStartEdit: (item: PanelItem) => void;
@@ -45,6 +48,8 @@ const DeviceCard = ({
   editing,
   editForm,
   hasChanges,
+  editingLocked = false,
+  editingLockHintId,
   onEditFormChange,
   onSelect,
   onStartEdit,
@@ -98,6 +103,8 @@ const DeviceCard = ({
         <button
           type="button"
           aria-label="삭제"
+          aria-describedby={editingLocked ? editingLockHintId : undefined}
+          disabled={editingLocked}
           className={styles.zoneCardIconBtnDelete}
           onClick={(e) => {
             e.stopPropagation();
@@ -335,6 +342,8 @@ const DeviceCard = ({
           <button
             type="button"
             className={styles.deviceCardEditBtn}
+            aria-describedby={editingLocked ? editingLockHintId : undefined}
+            disabled={editingLocked}
             onClick={(e) => {
               e.stopPropagation();
               onStartEdit(item);

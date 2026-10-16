@@ -60,6 +60,14 @@ export const buildingCount = style({
   ...vars.typography.caption,
 });
 
+export const editingLockBadge = style({
+  borderRadius: vars.radius.pill,
+  backgroundColor: vars.color.warningLight,
+  padding: `0.2rem ${vars.space.s2}`,
+  color: vars.color.warningText,
+  ...vars.typography.caption,
+});
+
 export const floorGrid = style({
   display: 'flex',
   flexWrap: 'wrap',
@@ -162,10 +170,11 @@ export const uploadButton = style({
   color: vars.color.white,
   ...vars.typography.body14,
   selectors: {
-    '&:hover': {
+    '&:hover:not(:disabled)': {
       borderColor: vars.color.primaryHover,
       backgroundColor: vars.color.primaryHover,
     },
+    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
   },
 });
 
@@ -210,9 +219,10 @@ export const reuploadButton = style({
   color: vars.color.textMid,
   ...vars.typography.caption,
   selectors: {
-    '&:hover': {
+    '&:hover:not(:disabled)': {
       borderColor: vars.color.gray300,
       backgroundColor: vars.color.gray25,
     },
+    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
   },
 });

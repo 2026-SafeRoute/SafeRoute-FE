@@ -8,11 +8,11 @@ import { STRUCTURE_NODE_COLOR } from '../constants/structureNode';
 import { hasExistingEdge } from '../utils/hasExistingEdge';
 import { rafThrottle } from '../utils/rafThrottle';
 
-import type { LightPickFieldName } from './LightPickField';
 import type { FloorGridCell } from '../api/floorGridApi';
 import type { MapEdge, MapNode } from '../api/mapGraphApi';
 import type { StructureNode } from '../constants/structureNode';
 import type { ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
+import type { LightPickFieldName } from '../utils/lightPick';
 
 // 맵그래프 노드 중 문/계단이 아닌 나머지(ROOM/HALLWAY/EXIT/CUSTOM) — 조회 전용, 아직 편집 대상 아님
 const GRAPH_NODE_COLOR: Record<'ROOM' | 'HALLWAY' | 'EXIT' | 'CUSTOM', string> = {
@@ -62,6 +62,7 @@ interface FloorCanvasSvgProps {
   // 유도등 갈림길 위치·좌우 통로 지정으로 대체됨
   lightPickField?: LightPickFieldName | null;
   onLightPick?: (id: string) => void;
+  editingLocked?: boolean;
 }
 
 // 실제 데이터를 그리는 도면 캔버스 SVG — 이름은 초기 프로토타입 시절("3층 목업")에서 남은 것
@@ -100,6 +101,7 @@ const FloorCanvasSvg = ({
   lightPreviewRightEdgeId,
   lightPickField,
   onLightPick,
+  editingLocked = false,
 }: FloorCanvasSvgProps) => {
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const structureDragMovedRef = useRef(false);
@@ -243,7 +245,7 @@ const FloorCanvasSvg = ({
         const to = nodePositionById.get(edge.toNodeId);
         if (!from || !to) return null;
         const isSelected = selectedEdgeId === edge.id;
-        const canSelect = !edgeAddActive && !placingActive && !zoneAddActive;
+        const canSelect = !editingLocked && !edgeAddActive && !placingActive && !zoneAddActive;
         const midX = (from.x + to.x) / 2;
         const midY = (from.y + to.y) / 2;
         // 유도등 추가·수정 중 드롭다운으로 왼쪽/오른쪽 통로를 고르면 캔버스에서도 바로 어느
@@ -317,7 +319,7 @@ const FloorCanvasSvg = ({
                 </text>
               </g>
             )}
-            {isSelected && (
+            {isSelected && !editingLocked && (
               <g
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => {
