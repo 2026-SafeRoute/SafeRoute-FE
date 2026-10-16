@@ -42,6 +42,7 @@ interface EvacuationSetupControl {
   configured: boolean;
   canSave: boolean;
   isSaving: boolean;
+  blockedMessage?: string;
   onFloorChange: (floorId: string) => void;
   onFireCellSelect: (cellId: string) => void;
   onStartNodeSelect: (nodeId: string) => void;
@@ -257,22 +258,34 @@ const ScenarioSetupForm = ({
                 </div>
               </div>
             </div>
-            <FireLocationGrid
-              imageUrl={floorMap.imageUrl}
-              graph={floorMap.graph}
-              gridCells={floorMap.gridCells}
-              routePoints={floorMap.routePoints}
-              fireCellIds={floorMap.fireCellIds}
-              originCellId={floorMap.originCellId}
-              selectedFireCellId={floorMap.selectedFireCellId}
-              selectedStartNodeId={floorMap.selectedStartNodeId}
-              persistedStartNodeId={evacuationSetup.persistedStartNodeId}
-              statusMessage={floorMap.statusMessage}
-              disabled={!evacuationSetup.editable || evacuationSetup.configured || isRunning}
-              startSelectionDisabled={!hasFireLocation}
-              onFireCellSelect={evacuationSetup.onFireCellSelect}
-              onStartNodeSelect={evacuationSetup.onStartNodeSelect}
-            />
+            <div className={styles.setupMapWrapper}>
+              <FireLocationGrid
+                imageUrl={floorMap.imageUrl}
+                graph={floorMap.graph}
+                gridCells={floorMap.gridCells}
+                routePoints={floorMap.routePoints}
+                fireCellIds={floorMap.fireCellIds}
+                originCellId={floorMap.originCellId}
+                selectedFireCellId={floorMap.selectedFireCellId}
+                selectedStartNodeId={floorMap.selectedStartNodeId}
+                persistedStartNodeId={evacuationSetup.persistedStartNodeId}
+                statusMessage={floorMap.statusMessage}
+                disabled={
+                  !evacuationSetup.editable ||
+                  evacuationSetup.configured ||
+                  isRunning ||
+                  Boolean(evacuationSetup.blockedMessage)
+                }
+                startSelectionDisabled={!hasFireLocation}
+                onFireCellSelect={evacuationSetup.onFireCellSelect}
+                onStartNodeSelect={evacuationSetup.onStartNodeSelect}
+              />
+              {evacuationSetup.blockedMessage && (
+                <div className={styles.setupMapBlocker} role="status">
+                  <p className={styles.setupMapBlockerMessage}>{evacuationSetup.blockedMessage}</p>
+                </div>
+              )}
+            </div>
 
             {evacuationSetup.configured && (
               <p className={styles.setupNotice}>
@@ -285,7 +298,7 @@ const ScenarioSetupForm = ({
               <Button
                 type="button"
                 className={styles.setupButton}
-                disabled={!evacuationSetup.canSave}
+                disabled={!evacuationSetup.canSave || Boolean(evacuationSetup.blockedMessage)}
                 isLoading={evacuationSetup.isSaving}
                 onClick={evacuationSetup.onSave}
               >

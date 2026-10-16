@@ -132,6 +132,9 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
     routeFloorId: training.route.routeFloorId,
     routePoints: training.route.routePoints,
   });
+  const hasUnsavedBuildingChange = Boolean(
+    scenario && scenarioForm.selectedBuildingId !== (scenario.buildingId ?? ''),
+  );
 
   const canStartTraining =
     isScenarioReady && floorView.isConfigured && !floorView.floorMap.statusMessage;
@@ -378,6 +381,9 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
             configured: floorView.isConfigured,
             canSave: floorView.canSaveSetup,
             isSaving: floorView.isSavingSetup || training.isScheduling,
+            blockedMessage: hasUnsavedBuildingChange
+              ? '변경한 건물을 먼저 저장한 뒤 발화 위치와 시작 지점을 설정해 주세요.'
+              : undefined,
             onFloorChange: floorView.chooseFloor,
             onFireCellSelect: floorView.chooseFireCell,
             onStartNodeSelect: floorView.chooseStartNode,
