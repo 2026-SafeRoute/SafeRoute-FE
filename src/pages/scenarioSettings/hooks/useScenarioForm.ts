@@ -3,6 +3,8 @@ import { useState } from 'react';
 import {
   FIRE_SPREAD_LABEL,
   FIRE_SPREAD_VALUE,
+  SCENARIO_NAME_MAX_LENGTH,
+  SCENARIO_NAME_MIN_LENGTH,
 } from '@pages/scenarioSettings/constants/scenarioSettings';
 import type { FireSpreadLabel } from '@pages/scenarioSettings/constants/scenarioSettings';
 import type { BasicInfo } from '@pages/scenarioSettings/types/scenarioSettings';
@@ -25,6 +27,9 @@ export type ReadyScenarioFormPayload = Required<
   Required<Pick<UpdateScenarioRequest, 'buildingId'>>;
 
 const isFireSpreadLabel = (value: string): value is FireSpreadLabel => value in FIRE_SPREAD_VALUE;
+
+const isScenarioNameValid = (name: string) =>
+  name.length >= SCENARIO_NAME_MIN_LENGTH && name.length <= SCENARIO_NAME_MAX_LENGTH;
 
 export const useScenarioForm = ({ scenario, defaultBuildingId }: UseScenarioFormParams) => {
   const [basicInfo, setBasicInfo] = useState<BasicInfo>(() => getInitialBasicInfo(scenario));
@@ -66,7 +71,7 @@ export const useScenarioForm = ({ scenario, defaultBuildingId }: UseScenarioForm
     const scheduledAt = toScheduledAt(basicInfo.scheduledAt);
 
     if (
-      !name ||
+      !isScenarioNameValid(name) ||
       !selectedBuildingId ||
       !Number.isInteger(expectedParticipants) ||
       expectedParticipants < 1 ||

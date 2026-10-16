@@ -333,16 +333,24 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
   const handleRejectRouteProposal = async () => {
     try {
       await training.route.rejectRouteProposal();
-    } catch {
-      show({ title: '경로 변경 제안 거부에 실패했습니다.', variant: 'error' });
+    } catch (error) {
+      show({
+        title: '경로 변경 제안 거부에 실패했습니다.',
+        description: getActionErrorMessage(error, '잠시 후 다시 시도해 주세요.'),
+        variant: 'error',
+      });
     }
   };
 
   const handleApplyRouteProposal = async () => {
     try {
       await training.route.approveRouteProposal();
-    } catch {
-      show({ title: '경로 변경 제안 승인에 실패했습니다.', variant: 'error' });
+    } catch (error) {
+      show({
+        title: '경로 변경 제안 승인에 실패했습니다.',
+        description: getActionErrorMessage(error, '잠시 후 다시 시도해 주세요.'),
+        variant: 'error',
+      });
     }
   };
 
