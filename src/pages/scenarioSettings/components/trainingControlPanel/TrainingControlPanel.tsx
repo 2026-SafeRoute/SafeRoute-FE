@@ -105,7 +105,6 @@ const TrainingControlPanel = ({
               <span className={styles.warningDot} aria-hidden="true" />
               경로 변경 제안
             </h2>
-            <span className={styles.aiBadge}>AI 판단</span>
           </div>
           <p className={styles.proposalMessage}>{proposal.message}</p>
           <dl className={styles.routeComparison}>

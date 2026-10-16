@@ -659,7 +659,7 @@ export interface CurrentCctvStateListResponse {
 /** CCTV 한 대의 현재 혼잡 상태 */
 export interface CurrentCctvStateResponse {
   /**
-   * 최근 5초 관측 구간의 평균 인원. 상태가 없으면 null
+   * 최근 관측 구간의 평균 인원. 상태가 없으면 null
    * @format double
    * @example 8.6
    */
@@ -719,7 +719,7 @@ export interface CurrentCctvStateResponse {
    */
   location?: string;
   /**
-   * 최근 5초 관측 구간의 순간 최대 인원. 상태가 없으면 null
+   * 최근 관측 구간의 순간 최대 인원. 상태가 없으면 null
    * @format int32
    * @example 12
    */
@@ -1465,7 +1465,7 @@ export interface MonitoringFrameResponse {
   /**
    * 이 프레임이 속한 분석 구간의 시작 시각(Unix epoch milliseconds)
    * @format int64
-   * @example 1787722090000
+   * @example 1787722094000
    */
   windowStart?: number;
 }
@@ -1652,6 +1652,12 @@ export interface ReportResponse {
   reportId?: string;
   /** @format double */
   riskIndex?: number;
+  /**
+   * 화재 확산으로 시작 지점에서 출구로 가는 대피 경로가 모두 막히기까지 걸린 시간(초, 훈련 시작 기준). 훈련 중 한 번도 막히지 않았으면 null. 점수에는 반영하지 않는 참고 지표다 - 시스템은 이 층 그래프 밖(아래층 계단 등)의 대피 수단과 실제 사람 위치를 모르므로 실패 판정 근거로 쓰지 않는다. 이 필드가 추가되기 전에 생성된 리포트는 null이다.
+   * @format int32
+   * @example 95
+   */
+  routeBlockedAfterSec?: number;
   summaryText?: string;
   survivalRate?: number;
   /** @format int32 */
@@ -1698,7 +1704,7 @@ export interface RouteRecalculationDetailResponse {
   trainingSessionId?: string;
   /** @format uuid */
   triggerEdgeId?: string;
-  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED";
+  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED" | "FIRE_SPREAD";
 }
 
 export interface RouteRecalculationResponse {
@@ -1741,7 +1747,7 @@ export interface RouteRecalculationSummaryResponse {
   trainingSessionId?: string;
   /** @format uuid */
   triggerEdgeId?: string;
-  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED";
+  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED" | "FIRE_SPREAD";
 }
 
 export interface RouteSegment {

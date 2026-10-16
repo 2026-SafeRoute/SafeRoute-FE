@@ -43,6 +43,8 @@ export interface RunningTrainingStatusResponse {
   elapsedSeconds: number;
   actualParticipants: number;
   currentSurvivalRate: number;
+  routeBlockedAt?: string | null;
+  routeBlockedAfterSec?: number | null;
 }
 
 export type HomeTrainingStatusResponse =

@@ -78,7 +78,6 @@ export const proposalCard = style([
 export const proposalHeader = style({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
   gap: vars.space.s3,
 });
 
@@ -95,15 +94,6 @@ export const warningDot = style({
   backgroundColor: vars.color.warningStrong,
   width: '0.8rem',
   height: '0.8rem',
-});
-
-export const aiBadge = style({
-  border: `1px solid ${vars.color.warningStrong}`,
-  borderRadius: vars.radius.pill,
-  backgroundColor: vars.color.white,
-  padding: '0.2rem 0.9rem',
-  color: vars.color.warningText,
-  ...vars.typography.caption,
 });
 
 export const proposalMessage = style({

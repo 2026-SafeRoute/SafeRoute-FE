@@ -4,13 +4,14 @@ import clsx from 'clsx';
 
 import Dropdown from '@components/dropdown';
 
-import LightPickField, { getLightPickHint } from './LightPickField';
+import LightPickField from './LightPickField';
 import { DEVICE_PLACE_CONFIG } from '../constants/devicePlacement';
 import { isStructureNodeType } from '../constants/structureNode';
 import * as styles from '../FloorPlansDetailPage.css';
+import { getLightPickHint } from '../utils/lightPick';
 
-import type { LightPickFieldName } from './LightPickField';
 import type { PlacingDeviceType } from '../constants/devicePlacement';
+import type { LightPickFieldName } from '../utils/lightPick';
 
 // 유도등 추가 팝업에서 같이 받는 담당 CCTV·가이던스 값 — DeviceEditForm과 필드 구성은 같지만
 // label이 없고(장치 ID 입력이 대신함) 전부 빈 문자열이면 "아직 안 정함"으로 취급해 생략 가능함

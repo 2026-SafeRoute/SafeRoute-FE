@@ -4,18 +4,22 @@ import { Button } from '@components/Button';
 import EmptyState from '@components/empty';
 import LoadingState from '@components/loadingState';
 
+import { CANVAS_W } from '@utils/floorCanvas';
+
 import AddedDevicePin from './AddedDevicePin';
 import DevicePin from './DevicePin';
 import FloorCanvasSvg from './FloorCanvasSvg';
 import * as styles from '../FloorPlansDetailPage.css';
 
-import type { LightPickFieldName } from './LightPickField';
 import type { FloorGridCell } from '../api/floorGridApi';
 import type { MapEdge, MapNode } from '../api/mapGraphApi';
 import type { AddedDevice } from '../constants/devicePlacement';
 import type { StructureNode } from '../constants/structureNode';
 import type { SelectedItem, ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
 import type { DeviceMarker, Floor } from '../types/floorPlans';
+import type { LightPickFieldName } from '../utils/lightPick';
+
+const CANVAS_RENDER_WIDTH = 700;
 
 interface FloorCanvasProps {
   mapWrapRef: React.RefObject<HTMLDivElement>;
@@ -58,6 +62,8 @@ interface FloorCanvasProps {
   onMapClick: (x: number, y: number) => void;
   onDeviceMoved: (id: string, x: number, y: number) => void;
   onUpload: () => void;
+  editingLocked?: boolean;
+  editingLockHintId?: string;
   onBackgroundClick: () => void;
   lightPreviewNodeId?: string;
   lightPreviewLeftEdgeId?: string;
@@ -108,6 +114,8 @@ const FloorCanvas = ({
   onMapClick,
   onDeviceMoved,
   onUpload,
+  editingLocked = false,
+  editingLockHintId,
   onBackgroundClick,
   lightPreviewNodeId,
   lightPreviewLeftEdgeId,
@@ -144,7 +152,13 @@ const FloorCanvas = ({
                 : '도면을 업로드하거나 AI 영역 분할을 실행해 주세요'
             }
             action={
-              <Button variant="primary" size="sm" onClick={onUpload}>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={editingLocked}
+                aria-describedby={editingLocked ? editingLockHintId : undefined}
+                onClick={onUpload}
+              >
                 도면 {isAnalysisFailed ? '다시 ' : ''}업로드
               </Button>
             }
@@ -155,98 +169,108 @@ const FloorCanvas = ({
   }
 
   const scale = zoom / 100;
+  const canvasRenderHeight = (CANVAS_RENDER_WIDTH * canvasH) / CANVAS_W;
 
   return (
-    <div ref={mapWrapRef} className={styles.mapWrap} style={{ transform: `scale(${scale})` }}>
-      <FloorCanvasSvg
-        mapImageUrl={resolvedImageUrl}
-        canvasH={canvasH}
-        placingActive={placingActive}
-        zoneAddActive={zoneAddActive}
-        onZoneDraftChange={onZoneDraftChange}
-        onZoneDragEnd={onZoneDragEnd}
-        onZoneDraggingChange={onZoneDraggingChange}
-        savedZones={savedZones}
-        structureNodes={structureNodes}
-        editingStructureId={editingStructureId}
-        onStructureNodeMove={onStructureNodeMove}
-        onStructureNodeMoveEnd={onStructureNodeMoveEnd}
-        graphNodes={graphNodes}
-        graphEdges={graphEdges}
-        edgeAddActive={edgeAddActive}
-        onNodeClickForEdge={onNodeClickForEdge}
-        edgeChainNodeIds={edgeChainNodeIds}
-        selectedEdgeId={selectedEdgeId}
-        onEdgeSelect={onEdgeSelect}
-        onEdgeDelete={onEdgeDelete}
-        selectedZoneRef={selectedZoneRef}
-        onZoneRefSelect={onZoneRefSelect}
-        cctvGridCellsMode={cctvGridCellsMode}
-        floorGridCells={floorGridCells}
-        selectedGridCellIds={selectedGridCellIds}
-        gridCellPxSize={gridCellPxSize}
-        onGridCellToggle={onGridCellToggle}
-        onMapClick={onMapClick}
-        onBackgroundClick={onBackgroundClick}
-        lightPreviewNodeId={lightPreviewNodeId}
-        lightPreviewLeftEdgeId={lightPreviewLeftEdgeId}
-        lightPreviewRightEdgeId={lightPreviewRightEdgeId}
-        lightPickField={lightPickField}
-        onLightPick={onLightPick}
-      />
-      {stagedCameraPosition && (
-        <div
-          className={styles.stagedCameraMarker}
-          style={{ left: `${stagedCameraPosition.x}%`, top: `${stagedCameraPosition.y}%` }}
+    <div
+      className={styles.mapScaleFrame}
+      style={{
+        width: `${CANVAS_RENDER_WIDTH * scale}px`,
+        height: `${canvasRenderHeight * scale}px`,
+      }}
+    >
+      <div ref={mapWrapRef} className={styles.mapWrap} style={{ transform: `scale(${scale})` }}>
+        <FloorCanvasSvg
+          mapImageUrl={resolvedImageUrl}
+          canvasH={canvasH}
+          placingActive={placingActive}
+          zoneAddActive={zoneAddActive}
+          onZoneDraftChange={onZoneDraftChange}
+          onZoneDragEnd={onZoneDragEnd}
+          onZoneDraggingChange={onZoneDraggingChange}
+          savedZones={savedZones}
+          structureNodes={structureNodes}
+          editingStructureId={editingStructureId}
+          onStructureNodeMove={onStructureNodeMove}
+          onStructureNodeMoveEnd={onStructureNodeMoveEnd}
+          graphNodes={graphNodes}
+          graphEdges={graphEdges}
+          edgeAddActive={edgeAddActive}
+          onNodeClickForEdge={onNodeClickForEdge}
+          edgeChainNodeIds={edgeChainNodeIds}
+          selectedEdgeId={selectedEdgeId}
+          onEdgeSelect={onEdgeSelect}
+          onEdgeDelete={onEdgeDelete}
+          selectedZoneRef={selectedZoneRef}
+          onZoneRefSelect={onZoneRefSelect}
+          cctvGridCellsMode={cctvGridCellsMode}
+          floorGridCells={floorGridCells}
+          selectedGridCellIds={selectedGridCellIds}
+          gridCellPxSize={gridCellPxSize}
+          onGridCellToggle={onGridCellToggle}
+          onMapClick={onMapClick}
+          onBackgroundClick={onBackgroundClick}
+          lightPreviewNodeId={lightPreviewNodeId}
+          lightPreviewLeftEdgeId={lightPreviewLeftEdgeId}
+          lightPreviewRightEdgeId={lightPreviewRightEdgeId}
+          lightPickField={lightPickField}
+          onLightPick={onLightPick}
+          editingLocked={editingLocked}
         />
-      )}
-      {/* 구역 드래그 중엔 이 레이어(SVG 밖 HTML 마커)의 포인터 이벤트를 꺼서, 마커 위를
+        {stagedCameraPosition && (
+          <div
+            className={styles.stagedCameraMarker}
+            style={{ left: `${stagedCameraPosition.x}%`, top: `${stagedCameraPosition.y}%` }}
+          />
+        )}
+        {/* 구역 드래그 중엔 이 레이어(SVG 밖 HTML 마커)의 포인터 이벤트를 꺼서, 마커 위를
           지나가도 각자의 cursor(grab/pointer)로 안 바뀌고 아래 SVG 배경의 crosshair가
           그대로 보이게 함 — 이 wrapper는 position을 안 걸어서 자식들의 absolute 위치
           기준(mapWrap)에는 영향이 없음 */}
-      <div style={{ pointerEvents: isZoneDragging ? 'none' : undefined }}>
-        {floor.devices.map((device) => {
-          // devicePositions는 드래그 중 미리보기 오버레이 — 수정 모드를 벗어나면(완료든 취소든)
-          // 곧바로 원래 좌표로 되돌아가야 해서, 그 항목을 수정 중일 때만 오버레이를 반영함
-          const pos =
-            editingItemId === device.id && devicePositions[device.id]
-              ? devicePositions[device.id]
-              : { x: device.x, y: device.y };
-          return (
-            <DevicePin
-              key={device.id}
-              device={device}
-              posX={pos.x}
-              posY={pos.y}
-              selected={selected?.kind === 'device' && selected.data.id === device.id}
-              draggable={editingItemId === device.id}
-              onClick={() => onSelectDevice(device)}
-              onDragEnd={onDeviceMoved}
-            />
-          );
-        })}
+        <div style={{ pointerEvents: isZoneDragging ? 'none' : undefined }}>
+          {floor.devices.map((device) => {
+            // devicePositions는 드래그 중 미리보기 오버레이 — 수정 모드를 벗어나면(완료든 취소든)
+            // 곧바로 원래 좌표로 되돌아가야 해서, 그 항목을 수정 중일 때만 오버레이를 반영함
+            const pos =
+              editingItemId === device.id && devicePositions[device.id]
+                ? devicePositions[device.id]
+                : { x: device.x, y: device.y };
+            return (
+              <DevicePin
+                key={device.id}
+                device={device}
+                posX={pos.x}
+                posY={pos.y}
+                selected={selected?.kind === 'device' && selected.data.id === device.id}
+                draggable={editingItemId === device.id}
+                onClick={() => onSelectDevice(device)}
+                onDragEnd={onDeviceMoved}
+              />
+            );
+          })}
 
-        {/* 사용자가 추가한 장치 마커 */}
-        {addedDevices.map((d) => {
-          // devicePositions는 드래그 중 미리보기 오버레이 — 수정 모드를 벗어나면(완료든 취소든)
-          // 곧바로 원래 좌표로 되돌아가야 해서, 그 항목을 수정 중일 때만 오버레이를 반영함
-          const pos =
-            editingItemId === d.id && devicePositions[d.id]
-              ? devicePositions[d.id]
-              : { x: d.x, y: d.y };
-          return (
-            <AddedDevicePin
-              key={d.id}
-              device={d}
-              posX={pos.x}
-              posY={pos.y}
-              selected={selected?.kind === 'device' && selected.data.id === d.id}
-              draggable={editingItemId === d.id}
-              onClick={() => onSelectDevice(d)}
-              onDragEnd={onDeviceMoved}
-            />
-          );
-        })}
+          {/* 사용자가 추가한 장치 마커 */}
+          {addedDevices.map((d) => {
+            // devicePositions는 드래그 중 미리보기 오버레이 — 수정 모드를 벗어나면(완료든 취소든)
+            // 곧바로 원래 좌표로 되돌아가야 해서, 그 항목을 수정 중일 때만 오버레이를 반영함
+            const pos =
+              editingItemId === d.id && devicePositions[d.id]
+                ? devicePositions[d.id]
+                : { x: d.x, y: d.y };
+            return (
+              <AddedDevicePin
+                key={d.id}
+                device={d}
+                posX={pos.x}
+                posY={pos.y}
+                selected={selected?.kind === 'device' && selected.data.id === d.id}
+                draggable={editingItemId === d.id}
+                onClick={() => onSelectDevice(d)}
+                onDragEnd={onDeviceMoved}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );

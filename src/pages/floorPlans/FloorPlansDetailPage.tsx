@@ -18,6 +18,8 @@ import {
   useFloorUserZonesQuery,
 } from '@apis/floors/floorQueries';
 import type { UserZoneWithCells } from '@apis/floors/floorQueries';
+import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
+import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTrainingSessionsQuery';
 
 import CheckIcon from '@assets/icons/ic-check.svg?react';
 import ChevronRightIcon from '@assets/icons/ic-chevron-right.svg?react';
@@ -158,6 +160,7 @@ const EMPTY_LIGHTS: IoTLight[] = [];
 const EMPTY_GRID_CELLS: FloorGridCell[] = [];
 const EMPTY_USER_ZONES: UserZoneWithCells[] = [];
 const EMPTY_GRAPH: FloorGraph = { nodes: [], edges: [] };
+const EDITING_LOCK_HINT_ID = 'floor-editing-lock-notice';
 
 // AI 분석이 DONE으로 바뀐 직후엔 노드가 아직 생성 중일 수 있어 그래프가 비어 올 수 있음 — 재조회 설정
 const GRAPH_RETRY_LIMIT = 5;
@@ -197,6 +200,12 @@ const FloorPlansDetailPage = () => {
   const queryClient = useQueryClient();
   const { buildingId, floorId } = useParams<{ buildingId: string; floorId: string }>();
   const { show } = useToast();
+  const { data: runningSessions = [], isPending: isRunningSessionsPending } =
+    useGetTrainingSessionsQuery(TRAINING_SESSION_STATUS.RUNNING);
+  const editingLocked = Boolean(
+    isRunningSessionsPending ||
+    (buildingId && runningSessions.some((session) => session.buildingId === buildingId)),
+  );
   const layoutRef = useRef<HTMLDivElement>(null);
   const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [devicePanelOpenOverride, setDevicePanelOpenOverride] = useState<boolean | null>(null);
@@ -307,6 +316,27 @@ const FloorPlansDetailPage = () => {
   useEffect(() => {
     resetFloorScopedState();
   }, [buildingId, floorId, resetFloorScopedState]);
+
+  // 훈련이 시작되는 순간 열려 있던 편집 흐름도 닫아, 잠금 전에 고른 값으로 변경 요청이
+  // 나가는 것을 막는다. 서버의 FLOOR004는 최종 안전장치로 그대로 유지한다.
+  useEffect(() => {
+    if (!editingLocked) return;
+    resetFloorScopedState();
+    if (!isRunningSessionsPending) {
+      void queryClient.invalidateQueries({ queryKey: floorQueryKeys.graph(floorId) });
+    }
+    setUploadModalOpen(false);
+    setGridSetupPromptOpen(false);
+    setGridSetupIntent(null);
+    setLightPickTarget(null);
+    setEdgeChainNodeIds([]);
+    setEdgeChainReviewOpen(false);
+    setZoneDeleteTarget(null);
+    setPendingUpload((current) => {
+      if (current) URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
+  }, [editingLocked, floorId, isRunningSessionsPending, queryClient, resetFloorScopedState]);
 
   // 분석이 끝나면(DONE) 노드·엣지는 아래 맵그래프 effect가 isFloorReady 전환으로 자동 재조회하고,
   // 그리드 셀은 배율 재적용 effect가 다시 받아온다 — 별도의 페이지 새로고침은 필요 없음
@@ -530,9 +560,11 @@ const FloorPlansDetailPage = () => {
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null);
   const [selectedZoneRef, setSelectedZoneRef] = useState<ZoneRefSelection | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [pendingUpload, setPendingUpload] = useState<{ file: File; previewUrl: string } | null>(
-    null,
-  );
+  const [pendingUpload, setPendingUpload] = useState<{
+    file: File;
+    previewUrl: string;
+    isReupload: boolean;
+  } | null>(null);
   const [isReuploading, setIsReuploading] = useState(false);
 
   // 미리보기 objectURL이 명시적으로 취소/제출되지 않고 화면을 벗어나는 경우를 대비한 안전망
@@ -821,7 +853,12 @@ const FloorPlansDetailPage = () => {
 
   // 파일 선택 단계 — 실제 업로드는 다음 단계(가로/세로 입력)에서 함께 이뤄짐
   const handleFileSelected = (file: File) => {
-    setPendingUpload({ file, previewUrl: URL.createObjectURL(file) });
+    if (editingLocked) return;
+    setPendingUpload({
+      file,
+      previewUrl: URL.createObjectURL(file),
+      isReupload: Boolean(currentFloor?.mapImageUrl),
+    });
     setUploadModalOpen(false);
   };
 
@@ -835,8 +872,8 @@ const FloorPlansDetailPage = () => {
     realHeightM: number;
     cellSizeCm: number;
   }) => {
-    if (!currentFloor || !pendingUpload || isReuploading) return;
-    const { file, previewUrl } = pendingUpload;
+    if (!currentFloor || !pendingUpload || isReuploading || editingLocked) return;
+    const { file, previewUrl, isReupload } = pendingUpload;
     setIsReuploading(true);
     uploadFloor(
       selectedBuildingId,
@@ -890,21 +927,37 @@ const FloorPlansDetailPage = () => {
         URL.revokeObjectURL(previewUrl);
         setPendingUpload(null);
         setIsReuploading(false);
+        if (isReupload) {
+          show({
+            title: '도면 관련 설정을 다시 확인해 주세요.',
+            description:
+              'AI 분석 완료 후 유도등 안내 설정·담당 CCTV와 시나리오 시작 지점을 다시 설정해야 할 수 있습니다.',
+            variant: 'warning',
+            duration: 10000,
+          });
+        }
         // 타임아웃은 '분석이 시작됐다'는 증거가 아니므로 성공으로 넘기지 않고 구분해서 안내한다
         analyzeFloor(newFloor.id).catch((error: unknown) => {
           const timedOut = isAxiosError(error) && error.code === 'ECONNABORTED';
+          const serverMessage = extractApiError(error).message;
           show({
             title: timedOut
               ? '분석 요청 응답이 지연되고 있습니다. 잠시 후 진행 상태를 확인해주세요.'
-              : '도면 분석 요청에 실패했습니다. 다시 시도해주세요.',
+              : '도면 분석 요청에 실패했습니다.',
+            description: timedOut ? undefined : serverMessage || '다시 시도해주세요.',
             variant: 'warning',
           });
         });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         // 미리보기와 입력값을 유지해 모달을 닫지 않고 바로 재시도할 수 있게 함
         setIsReuploading(false);
-        show({ title: '업로드에 실패했습니다. 다시 시도해주세요.', variant: 'error' });
+        const serverMessage = extractApiError(error).message;
+        show({
+          title: '업로드에 실패했습니다.',
+          description: serverMessage || '다시 시도해주세요.',
+          variant: 'error',
+        });
       });
   };
 
@@ -989,8 +1042,13 @@ const FloorPlansDetailPage = () => {
               cctvId: cctvId || undefined,
             });
           })
-          .catch(() => {
-            show({ title: '유도등 등록에 실패했습니다. 다시 시도해주세요.', variant: 'error' });
+          .catch((error: unknown) => {
+            const serverMessage = extractApiError(error).message;
+            show({
+              title: '유도등 등록에 실패했습니다.',
+              description: serverMessage || '다시 시도해주세요.',
+              variant: 'error',
+            });
           });
       }
     }
@@ -1666,8 +1724,13 @@ const FloorPlansDetailPage = () => {
         setZoneAddOpen(false);
         setZoneDraftCellIds([]);
       })
-      .catch(() => {
-        show({ title: '구역 저장에 실패했습니다.', variant: 'error' });
+      .catch((error: unknown) => {
+        const serverMessage = extractApiError(error).message;
+        show({
+          title: '구역 저장에 실패했습니다.',
+          description: serverMessage || '다시 시도해주세요.',
+          variant: 'error',
+        });
       });
   };
 
@@ -1886,8 +1949,13 @@ const FloorPlansDetailPage = () => {
         }
         setZoneDeleteTarget(null);
       })
-      .catch(() => {
-        show({ title: '구역 삭제에 실패했습니다.', variant: 'error' });
+      .catch((error: unknown) => {
+        const serverMessage = extractApiError(error).message;
+        show({
+          title: '구역 삭제에 실패했습니다.',
+          description: serverMessage || '다시 시도해주세요.',
+          variant: 'error',
+        });
       })
       .finally(() => setIsDeletingZone(false));
   };
@@ -1929,6 +1997,8 @@ const FloorPlansDetailPage = () => {
               <button
                 type="button"
                 className={n.isFinalExit ? styles.finalExitBadge : styles.finalExitToggle}
+                disabled={editingLocked}
+                aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleToggleFinalExit(n.id);
@@ -1942,7 +2012,8 @@ const FloorPlansDetailPage = () => {
               <button
                 type="button"
                 className={n.isStartCandidate ? styles.finalExitBadge : styles.finalExitToggle}
-                disabled={startCandidatePendingIds.has(n.id)}
+                disabled={editingLocked || startCandidatePendingIds.has(n.id)}
+                aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleToggleStartCandidate(n.id);
@@ -1955,6 +2026,8 @@ const FloorPlansDetailPage = () => {
               type="button"
               aria-label={isEditing ? '수정 완료' : '수정'}
               className={isEditing ? styles.zoneCardIconBtnDone : styles.zoneCardIconBtn}
+              disabled={editingLocked}
+              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 handleStartEditStructure(n.id);
@@ -1970,6 +2043,8 @@ const FloorPlansDetailPage = () => {
               type="button"
               aria-label="삭제"
               className={styles.zoneCardIconBtnDelete}
+              disabled={editingLocked}
+              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 handleStructureNodeDelete(n.id);
@@ -2000,6 +2075,7 @@ const FloorPlansDetailPage = () => {
                 className={styles.deviceCardNameInput}
                 aria-label="구역 이름"
                 value={zoneEditLabel}
+                disabled={editingLocked}
                 onChange={(e) => setZoneEditLabel(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
               />
@@ -2012,6 +2088,8 @@ const FloorPlansDetailPage = () => {
               type="button"
               aria-label={isEditing ? '수정 완료' : '수정'}
               className={isEditing ? styles.zoneCardIconBtnDone : styles.zoneCardIconBtn}
+              disabled={editingLocked}
+              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 if (isEditing) {
@@ -2031,6 +2109,8 @@ const FloorPlansDetailPage = () => {
               type="button"
               aria-label="삭제"
               className={styles.zoneCardIconBtnDelete}
+              disabled={editingLocked}
+              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 handleZoneDeleteRequest(z);
@@ -2343,9 +2423,14 @@ const FloorPlansDetailPage = () => {
           name: newLabel,
           x: finalX / 100,
           y: finalY / 100,
-        }).catch(() => {
+        }).catch((error: unknown) => {
           rollback();
-          show({ title: '유도등 정보 수정에 실패했습니다.', variant: 'error' });
+          const serverMessage = extractApiError(error).message;
+          show({
+            title: '유도등 정보 수정에 실패했습니다.',
+            description: serverMessage || '다시 시도해주세요.',
+            variant: 'error',
+          });
         });
 
         // 가이던스·담당 CCTV는 예전 설정 모달의 "저장" 버튼들이 하던 일을 그대로 옮긴 것 —
@@ -2368,9 +2453,14 @@ const FloorPlansDetailPage = () => {
       } else if (item.type === 'cctv' && prevDevice) {
         updateCctv(item.id, { name: newLabel, x: finalX / 100, y: finalY / 100 })
           .then(patchCctvCache)
-          .catch(() => {
+          .catch((error: unknown) => {
             rollback();
-            show({ title: 'CCTV 정보 수정에 실패했습니다.', variant: 'error' });
+            const serverMessage = extractApiError(error).message;
+            show({
+              title: 'CCTV 정보 수정에 실패했습니다.',
+              description: serverMessage || '다시 시도해주세요.',
+              variant: 'error',
+            });
           });
       }
     }
@@ -2502,6 +2592,18 @@ const FloorPlansDetailPage = () => {
         {/* ── 좌측 사이드바 ── */}
         <aside className={styles.sidebar}>
           <div className={styles.sidebarInner} style={{ padding: '2rem 2rem 2.4rem' }}>
+            <div
+              id={EDITING_LOCK_HINT_ID}
+              className={editingLocked ? styles.editingLockNotice : undefined}
+              role="status"
+            >
+              {editingLocked
+                ? isRunningSessionsPending
+                  ? '훈련 진행 여부를 확인하는 동안 도면 편집을 잠시 사용할 수 없습니다.'
+                  : '훈련 진행 중에는 도면·노드·구역·기기 설정을 변경할 수 없습니다. 기기 활성화·비활성화는 계속 사용할 수 있습니다.'
+                : ''}
+            </div>
+
             {/* 층 목록 */}
             <div className={styles.floorNavCard}>
               <div className={styles.floorNavHeader}>층 목록</div>
@@ -2541,6 +2643,8 @@ const FloorPlansDetailPage = () => {
                 hasFinalExit={structureNodes.some((n) => n.isFinalExit)}
                 hasStair={structureNodes.some((n) => n.type === 'stair')}
                 hasRouteToExit={hasRouteFromStartToExit}
+                editingLocked={editingLocked}
+                editingLockHintId={EDITING_LOCK_HINT_ID}
                 onAddStartNode={() => {
                   // 시작 후보는 문·출입구 카드에서 지정 — 해당 필터로 이동
                   setTopFilter('device');
@@ -2751,6 +2855,8 @@ const FloorPlansDetailPage = () => {
             {currentFloor?.segmentationStatus === 'DONE' && (
               <div className={styles.canvasTopRightRow}>
                 <AddActionMenu
+                  disabled={editingLocked}
+                  disabledHintId={EDITING_LOCK_HINT_ID}
                   onAddNode={() => handleOpenNodeAdd()}
                   onAddZone={handleToggleZoneAdd}
                   onAddEdge={handleOpenEdgeAdd}
@@ -2837,6 +2943,8 @@ const FloorPlansDetailPage = () => {
                   onDeviceMoved={handleDeviceMoved}
                   addedDevices={addedDevices}
                   onUpload={() => setUploadModalOpen(true)}
+                  editingLocked={editingLocked}
+                  editingLockHintId={EDITING_LOCK_HINT_ID}
                 />
               ) : (
                 <LoadingState message="도면을 불러오는 중..." />
@@ -2978,6 +3086,8 @@ const FloorPlansDetailPage = () => {
                       editing={editingItemId === item.id}
                       editForm={editForm}
                       hasChanges={isDeviceEditFormDirty}
+                      editingLocked={editingLocked}
+                      editingLockHintId={EDITING_LOCK_HINT_ID}
                       onEditFormChange={setEditForm}
                       onSelect={handlePanelItemSelect}
                       onStartEdit={handleStartEdit}

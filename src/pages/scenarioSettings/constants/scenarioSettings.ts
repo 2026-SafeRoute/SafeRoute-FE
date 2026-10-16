@@ -17,6 +17,9 @@ export const SCENARIO_STATUS_FILTER_OPTIONS = [
 
 export const FIRE_SPREAD_OPTIONS = ['느림', '중간', '빠름'] as const;
 
+export const SCENARIO_NAME_MIN_LENGTH = 2;
+export const SCENARIO_NAME_MAX_LENGTH = 20;
+
 export const FIRE_SPREAD_LABEL = {
   SLOW: '느림',
   MEDIUM: '중간',
