@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 import { CANVAS_W, buildZoneOutlinePath } from '@utils/floorCanvas';
 
@@ -108,14 +108,14 @@ const FloorCanvasSvg = ({
   const editingLockedRef = useRef(editingLocked);
   const cancelZoneDragRef = useRef<(() => void) | null>(null);
   const cancelStructureDragRef = useRef<(() => void) | null>(null);
-  editingLockedRef.current = editingLocked;
   // 구역 드래그 중엔 포인터가 격자 셀·구조 노드 위를 지나가도 그 위에 걸린 개별 커서(pointer 등)로
   // 안 바뀌고 항상 십자선(crosshair)으로 보여야 함 — 드래그가 아닐 땐 칸 클릭·노드 선택이 여전히
   // 동작해야 하므로 zoneAddActive 내내가 아니라 실제 드래그 중(mousedown~mouseup)에만 그 레이어의
   // 포인터 이벤트를 꺼서 아래 svg 배경의 crosshair가 그대로 보이게 함
   const [isZoneDragging, setIsZoneDragging] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    editingLockedRef.current = editingLocked;
     if (!editingLocked) return;
     cancelZoneDragRef.current?.();
     cancelStructureDragRef.current?.();
