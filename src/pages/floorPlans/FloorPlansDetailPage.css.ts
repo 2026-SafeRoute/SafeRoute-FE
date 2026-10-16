@@ -119,8 +119,18 @@ export const canvasActionButton = style({
   color: vars.color.textMid,
   ...vars.typography.body14Medium,
   selectors: {
-    '&:hover': { backgroundColor: vars.color.gray25 },
+    '&:hover:not(:disabled)': { backgroundColor: vars.color.gray25 },
+    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
   },
+});
+
+export const editingLockNotice = style({
+  border: `1px solid ${vars.color.warning}`,
+  borderRadius: vars.radius.md,
+  backgroundColor: vars.color.warningLight,
+  padding: vars.space.s3,
+  color: vars.color.warningText,
+  ...vars.typography.caption,
 });
 
 /* ── 툴바 "+ 추가" 메뉴 ── */
@@ -809,7 +819,8 @@ export const finalExitToggle = style({
   color: vars.color.textLow,
   ...vars.typography.caption,
   selectors: {
-    '&:hover': { borderColor: vars.color.gray300, color: vars.color.textMid },
+    '&:hover:not(:disabled)': { borderColor: vars.color.gray300, color: vars.color.textMid },
+    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
   },
 });
 
@@ -822,6 +833,9 @@ export const finalExitBadge = style({
   padding: `0.1rem ${vars.space.s2}`,
   color: vars.color.successText,
   ...vars.typography.caption,
+  selectors: {
+    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
+  },
 });
 
 /* CCTV 카드의 사용가능/불가능 — 클릭 가능한 상태 칩처럼 보이던 걸(눌러보기 전까진 토글인지
@@ -955,7 +969,8 @@ export const deviceCardEditBtn = style({
   color: vars.color.textMid,
   ...vars.typography.caption,
   selectors: {
-    '&:hover': { backgroundColor: vars.color.gray25 },
+    '&:hover:not(:disabled)': { backgroundColor: vars.color.gray25 },
+    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
   },
 });
 
@@ -998,7 +1013,8 @@ export const zoneCardIconBtn = style({
   height: '2.6rem',
   color: vars.color.textMid,
   selectors: {
-    '&:hover': { backgroundColor: vars.color.gray25 },
+    '&:hover:not(:disabled)': { backgroundColor: vars.color.gray25 },
+    '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
   },
 });
 
@@ -1153,7 +1169,7 @@ export const canvasBodyWithActions = style({
 export const canvasScrollArea = style({
   display: 'flex',
   alignItems: 'flex-start',
-  justifyContent: 'center',
+  justifyContent: 'flex-start',
   width: '100%',
   height: '100%',
   overflow: 'auto',
@@ -1164,11 +1180,19 @@ export const canvasScrollArea = style({
   },
 });
 
+// 확대된 도면의 실제 점유 크기를 스크롤 영역에 반영한다. 여유 공간이 있을 때는 가운데에 두고,
+// 확대 폭이 스크롤 영역보다 커지면 auto margin이 0으로 줄어 왼쪽 끝까지 접근할 수 있다.
+export const mapScaleFrame = style({
+  position: 'relative',
+  flexShrink: 0,
+  marginInline: 'auto',
+});
+
 export const mapWrap = style({
   position: 'relative',
   display: 'inline-block',
   flexShrink: 0,
-  transformOrigin: 'top center',
+  transformOrigin: 'top left',
   transition: 'transform 0.15s ease',
   overflow: 'visible',
 });

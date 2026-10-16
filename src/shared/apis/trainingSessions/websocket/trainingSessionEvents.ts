@@ -17,6 +17,7 @@ export const TRAINING_EVENT_TYPE = {
   ROUTE_RECALCULATION_CANCELLED: 'ROUTE_RECALCULATION_CANCELLED',
   IOT_LIGHT_STATUS_UPDATED: 'IOT_LIGHT_STATUS_UPDATED',
   FIRE_SPREAD_UPDATED: 'FIRE_SPREAD_UPDATED',
+  EVACUATION_ROUTE_BLOCKED: 'EVACUATION_ROUTE_BLOCKED',
 } as const;
 
 export type TrainingEventType = (typeof TRAINING_EVENT_TYPE)[keyof typeof TRAINING_EVENT_TYPE];
@@ -63,6 +64,16 @@ export interface RouteRecalculationEventData {
   eventId?: string;
   recalculationId?: string;
   status?: RouteRecalculationSummaryResponse['status'];
+  triggerEdgeId?: string | null;
+  triggerType?: RouteRecalculationSummaryResponse['triggerType'];
+  congestionLevel?: RouteRecalculationSummaryResponse['congestionLevel'] | null;
+}
+
+// 화재 확산으로 시작 지점에서 출구까지 도달 가능한 경로가 모두 사라진 시점
+export interface EvacuationRouteBlockedEventData {
+  floorId: string;
+  blockedAt: string;
+  blockedAfterSec: number;
 }
 
 // 훈련 세션 WebSocket 이벤트의 공통 응답 형식

@@ -16,21 +16,28 @@ const formatRouteSegment = (segment?: RouteSegment) => {
   if (nodeCount === 0) return '현재 대피 경로 정보가 없습니다.';
 
   const weight = segment?.totalWeight;
-  return weight === undefined ? `${nodeCount}개 지점` : `${nodeCount}개 지점 · 가중치 ${weight}`;
+  return weight === undefined
+    ? `${nodeCount}개 지점`
+    : `${nodeCount}개 지점 · 가중치 ${weight.toFixed(1)}`;
 };
 
 export const formatRouteProposal = (detail: RouteRecalculationDetailResponse | undefined) => {
   if (!detail) return null;
 
+  const isFireSpread = detail.triggerType === 'FIRE_SPREAD';
   const density =
-    detail.density === undefined ? null : `${detail.density.toFixed(1)}명/㎡ 밀집도 감지`;
-  const source = detail.cctvCode ?? null;
+    isFireSpread || detail.density === undefined
+      ? null
+      : `${detail.density.toFixed(1)}명/㎡ 밀집도 감지`;
+  const source = isFireSpread ? null : (detail.cctvCode ?? null);
   const reason = [source, density].filter(Boolean).join(' · ');
   const previousRoute = formatRouteSegment(detail.previousRoute);
   const candidateRoute = formatRouteSegment(detail.candidateRoute);
 
   return {
-    message: reason || '혼잡 감지로 새 대피 경로가 제안되었습니다.',
+    message: isFireSpread
+      ? '화재 확산으로 우회 경로가 제안되었습니다.'
+      : reason || '혼잡 감지로 새 대피 경로가 제안되었습니다.',
     previousRoute,
     candidateRoute,
   };

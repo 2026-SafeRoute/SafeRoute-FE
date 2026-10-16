@@ -2,7 +2,11 @@ import FireLocationGrid from '@pages/scenarioSettings/components/fireLocationGri
 import DateTimeField from '@pages/scenarioSettings/components/inputField/dateTimeField/DateTimeField';
 import ScenarioField from '@pages/scenarioSettings/components/inputField/scenarioField/ScenarioField';
 import type { ScenarioFieldOption } from '@pages/scenarioSettings/components/inputField/scenarioField/ScenarioField';
-import { FIRE_SPREAD_OPTIONS } from '@pages/scenarioSettings/constants/scenarioSettings';
+import {
+  FIRE_SPREAD_OPTIONS,
+  SCENARIO_NAME_MAX_LENGTH,
+  SCENARIO_NAME_MIN_LENGTH,
+} from '@pages/scenarioSettings/constants/scenarioSettings';
 import type { ScenarioFloorMapView } from '@pages/scenarioSettings/hooks/useScenarioFloorView';
 import * as pageStyles from '@pages/scenarioSettings/ScenarioSettingsPage.css';
 import type { BasicInfo } from '@pages/scenarioSettings/types/scenarioSettings';
@@ -38,6 +42,7 @@ interface EvacuationSetupControl {
   configured: boolean;
   canSave: boolean;
   isSaving: boolean;
+  blockedMessage?: string;
   onFloorChange: (floorId: string) => void;
   onFireCellSelect: (cellId: string) => void;
   onStartNodeSelect: (nodeId: string) => void;
@@ -130,6 +135,11 @@ const ScenarioSetupForm = ({
     hasStartCandidates: floorMap.hasStartCandidates,
     isMapUnavailable,
   });
+  const scenarioNameLength = basicInfo.scenarioName.trim().length;
+  const scenarioNameError =
+    scenarioNameLength > 0 && scenarioNameLength < SCENARIO_NAME_MIN_LENGTH
+      ? `시나리오명은 ${SCENARIO_NAME_MIN_LENGTH}~${SCENARIO_NAME_MAX_LENGTH}자로 입력해 주세요.`
+      : undefined;
 
   return (
     <div className={styles.container}>
@@ -144,6 +154,8 @@ const ScenarioSetupForm = ({
             label="시나리오명"
             value={basicInfo.scenarioName}
             placeholder="시나리오명을 입력하세요"
+            maxLength={SCENARIO_NAME_MAX_LENGTH}
+            errorMessage={scenarioNameError}
             readOnly={readOnly}
             disabled={isRunning}
             onChange={(event) => onBasicInfoChange('scenarioName', event.target.value)}
@@ -246,22 +258,34 @@ const ScenarioSetupForm = ({
                 </div>
               </div>
             </div>
-            <FireLocationGrid
-              imageUrl={floorMap.imageUrl}
-              graph={floorMap.graph}
-              gridCells={floorMap.gridCells}
-              routePoints={floorMap.routePoints}
-              fireCellIds={floorMap.fireCellIds}
-              originCellId={floorMap.originCellId}
-              selectedFireCellId={floorMap.selectedFireCellId}
-              selectedStartNodeId={floorMap.selectedStartNodeId}
-              persistedStartNodeId={evacuationSetup.persistedStartNodeId}
-              statusMessage={floorMap.statusMessage}
-              disabled={!evacuationSetup.editable || evacuationSetup.configured || isRunning}
-              startSelectionDisabled={!hasFireLocation}
-              onFireCellSelect={evacuationSetup.onFireCellSelect}
-              onStartNodeSelect={evacuationSetup.onStartNodeSelect}
-            />
+            <div className={styles.setupMapWrapper}>
+              <FireLocationGrid
+                imageUrl={floorMap.imageUrl}
+                graph={floorMap.graph}
+                gridCells={floorMap.gridCells}
+                routePoints={floorMap.routePoints}
+                fireCellIds={floorMap.fireCellIds}
+                originCellId={floorMap.originCellId}
+                selectedFireCellId={floorMap.selectedFireCellId}
+                selectedStartNodeId={floorMap.selectedStartNodeId}
+                persistedStartNodeId={evacuationSetup.persistedStartNodeId}
+                statusMessage={floorMap.statusMessage}
+                disabled={
+                  !evacuationSetup.editable ||
+                  evacuationSetup.configured ||
+                  isRunning ||
+                  Boolean(evacuationSetup.blockedMessage)
+                }
+                startSelectionDisabled={!hasFireLocation}
+                onFireCellSelect={evacuationSetup.onFireCellSelect}
+                onStartNodeSelect={evacuationSetup.onStartNodeSelect}
+              />
+              {evacuationSetup.blockedMessage && (
+                <div className={styles.setupMapBlocker} role="status">
+                  <p className={styles.setupMapBlockerMessage}>{evacuationSetup.blockedMessage}</p>
+                </div>
+              )}
+            </div>
 
             {evacuationSetup.configured && (
               <p className={styles.setupNotice}>
@@ -274,7 +298,7 @@ const ScenarioSetupForm = ({
               <Button
                 type="button"
                 className={styles.setupButton}
-                disabled={!evacuationSetup.canSave}
+                disabled={!evacuationSetup.canSave || Boolean(evacuationSetup.blockedMessage)}
                 isLoading={evacuationSetup.isSaving}
                 onClick={evacuationSetup.onSave}
               >

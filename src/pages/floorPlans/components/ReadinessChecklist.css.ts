@@ -40,7 +40,13 @@ export const readinessActionBtn = style({
   color: vars.color.primary,
   ...vars.typography.caption,
   selectors: {
-    '&:hover': { backgroundColor: vars.color.primaryLight2 },
+    '&:hover:not(:disabled)': { backgroundColor: vars.color.primaryLight2 },
+    '&:disabled': {
+      borderColor: vars.color.gray100,
+      backgroundColor: vars.color.gray50,
+      cursor: 'not-allowed',
+      color: vars.color.textLow,
+    },
   },
 });
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 import { CANVAS_W, buildZoneOutlinePath } from '@utils/floorCanvas';
 
@@ -8,11 +8,11 @@ import { STRUCTURE_NODE_COLOR } from '../constants/structureNode';
 import { hasExistingEdge } from '../utils/hasExistingEdge';
 import { rafThrottle } from '../utils/rafThrottle';
 
-import type { LightPickFieldName } from './LightPickField';
 import type { FloorGridCell } from '../api/floorGridApi';
 import type { MapEdge, MapNode } from '../api/mapGraphApi';
 import type { StructureNode } from '../constants/structureNode';
 import type { ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
+import type { LightPickFieldName } from '../utils/lightPick';
 
 // 맵그래프 노드 중 문/계단이 아닌 나머지(ROOM/HALLWAY/EXIT/CUSTOM) — 조회 전용, 아직 편집 대상 아님
 const GRAPH_NODE_COLOR: Record<'ROOM' | 'HALLWAY' | 'EXIT' | 'CUSTOM', string> = {
@@ -62,6 +62,7 @@ interface FloorCanvasSvgProps {
   // 유도등 갈림길 위치·좌우 통로 지정으로 대체됨
   lightPickField?: LightPickFieldName | null;
   onLightPick?: (id: string) => void;
+  editingLocked?: boolean;
 }
 
 // 실제 데이터를 그리는 도면 캔버스 SVG — 이름은 초기 프로토타입 시절("3층 목업")에서 남은 것
@@ -100,14 +101,25 @@ const FloorCanvasSvg = ({
   lightPreviewRightEdgeId,
   lightPickField,
   onLightPick,
+  editingLocked = false,
 }: FloorCanvasSvgProps) => {
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const structureDragMovedRef = useRef(false);
+  const editingLockedRef = useRef(editingLocked);
+  const cancelZoneDragRef = useRef<(() => void) | null>(null);
+  const cancelStructureDragRef = useRef<(() => void) | null>(null);
   // 구역 드래그 중엔 포인터가 격자 셀·구조 노드 위를 지나가도 그 위에 걸린 개별 커서(pointer 등)로
   // 안 바뀌고 항상 십자선(crosshair)으로 보여야 함 — 드래그가 아닐 땐 칸 클릭·노드 선택이 여전히
   // 동작해야 하므로 zoneAddActive 내내가 아니라 실제 드래그 중(mousedown~mouseup)에만 그 레이어의
   // 포인터 이벤트를 꺼서 아래 svg 배경의 crosshair가 그대로 보이게 함
   const [isZoneDragging, setIsZoneDragging] = useState(false);
+
+  useLayoutEffect(() => {
+    editingLockedRef.current = editingLocked;
+    if (!editingLocked) return;
+    cancelZoneDragRef.current?.();
+    cancelStructureDragRef.current?.();
+  }, [editingLocked]);
 
   // 엣지(선) 양 끝 좌표를 찾기 위한 노드 id → SVG 좌표 조회 (구조 노드 + 그 외 그래프 노드 통합)
   const nodePositionById = new Map<string, { x: number; y: number }>();
@@ -115,6 +127,7 @@ const FloorCanvasSvg = ({
   graphNodes.forEach((n) => nodePositionById.set(n.id, { x: n.x * CANVAS_W, y: n.y * canvasH }));
 
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (editingLockedRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
     // 캔버스 경계 밖 클릭이 0~1 범위를 벗어난 좌표로 저장되지 않도록 클램프 (백엔드 x,y 검증: 0~1)
     const x = Math.round(
@@ -144,7 +157,7 @@ const FloorCanvasSvg = ({
   };
 
   const handleSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!zoneAddActive) return;
+    if (editingLockedRef.current || !zoneAddActive) return;
     e.preventDefault();
     const svgEl = e.currentTarget;
     const start = svgPoint(e.clientX, e.clientY, svgEl);
@@ -155,7 +168,26 @@ const FloorCanvasSvg = ({
     let lastRect = { x: start.x, y: start.y, w: 0, h: 0 };
     const applyRect = rafThrottle((rect: typeof lastRect) => onZoneDraftChange(rect));
 
+    const cleanup = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      cancelZoneDragRef.current = null;
+    };
+
+    const cancelDrag = () => {
+      dragStartRef.current = null;
+      setIsZoneDragging(false);
+      onZoneDraggingChange(false);
+      applyRect.cancel();
+      onZoneDraftChange(null);
+      cleanup();
+    };
+
     const onMove = (mv: MouseEvent) => {
+      if (editingLockedRef.current) {
+        cancelDrag();
+        return;
+      }
       if (!dragStartRef.current) return;
       const cur = svgPoint(mv.clientX, mv.clientY, svgEl);
       const x = Math.min(dragStartRef.current.x, cur.x);
@@ -166,6 +198,10 @@ const FloorCanvasSvg = ({
       applyRect(lastRect);
     };
     const onUp = () => {
+      if (editingLockedRef.current) {
+        cancelDrag();
+        return;
+      }
       dragStartRef.current = null;
       setIsZoneDragging(false);
       onZoneDraggingChange(false);
@@ -173,16 +209,16 @@ const FloorCanvasSvg = ({
       // 취소하고 마지막 사각형을 먼저 동기 반영한 뒤에 종료 처리함
       applyRect.cancel();
       onZoneDraftChange(lastRect);
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      cleanup();
       onZoneDragEnd();
     };
+    cancelZoneDragRef.current = cancelDrag;
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   };
 
   const handleStructureMouseDown = (e: React.MouseEvent<SVGGElement>, structureId: string) => {
-    if (structureId !== editingStructureId) return;
+    if (editingLockedRef.current || structureId !== editingStructureId) return;
     e.stopPropagation();
     e.preventDefault();
     structureDragMovedRef.current = false;
@@ -191,21 +227,40 @@ const FloorCanvasSvg = ({
     let lastPoint: { x: number; y: number } | null = null;
     const applyMove = rafThrottle((x: number, y: number) => onStructureNodeMove(structureId, x, y));
 
+    const cleanup = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      cancelStructureDragRef.current = null;
+    };
+
+    const cancelDrag = () => {
+      applyMove.cancel();
+      cleanup();
+    };
+
     const onMove = (mv: MouseEvent) => {
+      if (editingLockedRef.current) {
+        cancelDrag();
+        return;
+      }
       structureDragMovedRef.current = true;
       const point = svgPoint(mv.clientX, mv.clientY, svgEl);
       lastPoint = point;
       applyMove(point.x, point.y);
     };
     const onUp = () => {
+      if (editingLockedRef.current) {
+        cancelDrag();
+        return;
+      }
       applyMove.cancel();
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      cleanup();
       if (lastPoint) {
         onStructureNodeMove(structureId, lastPoint.x, lastPoint.y);
         onStructureNodeMoveEnd(structureId, lastPoint.x, lastPoint.y);
       }
     };
+    cancelStructureDragRef.current = cancelDrag;
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   };
@@ -243,7 +298,7 @@ const FloorCanvasSvg = ({
         const to = nodePositionById.get(edge.toNodeId);
         if (!from || !to) return null;
         const isSelected = selectedEdgeId === edge.id;
-        const canSelect = !edgeAddActive && !placingActive && !zoneAddActive;
+        const canSelect = !editingLocked && !edgeAddActive && !placingActive && !zoneAddActive;
         const midX = (from.x + to.x) / 2;
         const midY = (from.y + to.y) / 2;
         // 유도등 추가·수정 중 드롭다운으로 왼쪽/오른쪽 통로를 고르면 캔버스에서도 바로 어느
@@ -317,7 +372,7 @@ const FloorCanvasSvg = ({
                 </text>
               </g>
             )}
-            {isSelected && (
+            {isSelected && !editingLocked && (
               <g
                 style={{ cursor: 'pointer' }}
                 onClick={(e) => {

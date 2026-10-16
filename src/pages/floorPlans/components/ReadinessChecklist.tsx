@@ -21,6 +21,8 @@ interface ReadinessChecklistProps {
   hasFinalExit: boolean;
   hasStair: boolean;
   hasRouteToExit: boolean;
+  editingLocked?: boolean;
+  editingLockHintId?: string;
   onAddStartNode: () => void;
   onAddStair: () => void;
   onFocusDeviceCards: () => void;
@@ -32,6 +34,8 @@ const ReadinessChecklist = ({
   hasFinalExit,
   hasStair,
   hasRouteToExit,
+  editingLocked = false,
+  editingLockHintId,
   onAddStartNode,
   onAddStair,
   onFocusDeviceCards,
@@ -48,7 +52,13 @@ const ReadinessChecklist = ({
       action: hasStartNode ? (
         <span className={styles.readinessDoneText}>완료</span>
       ) : (
-        <button type="button" className={styles.readinessActionBtn} onClick={onAddStartNode}>
+        <button
+          type="button"
+          className={styles.readinessActionBtn}
+          disabled={editingLocked}
+          aria-describedby={editingLocked ? editingLockHintId : undefined}
+          onClick={onAddStartNode}
+        >
           지정하기
         </button>
       ),
@@ -59,11 +69,23 @@ const ReadinessChecklist = ({
       action: hasFinalExit ? (
         <span className={styles.readinessDoneText}>완료</span>
       ) : !hasStair ? (
-        <button type="button" className={styles.readinessActionBtn} onClick={onAddStair}>
+        <button
+          type="button"
+          className={styles.readinessActionBtn}
+          disabled={editingLocked}
+          aria-describedby={editingLocked ? editingLockHintId : undefined}
+          onClick={onAddStair}
+        >
           계단 추가하기
         </button>
       ) : (
-        <button type="button" className={styles.readinessActionBtn} onClick={onFocusDeviceCards}>
+        <button
+          type="button"
+          className={styles.readinessActionBtn}
+          disabled={editingLocked}
+          aria-describedby={editingLocked ? editingLockHintId : undefined}
+          onClick={onFocusDeviceCards}
+        >
           카드에서 지정
         </button>
       ),
@@ -74,7 +96,13 @@ const ReadinessChecklist = ({
       action: hasRouteToExit ? (
         <span className={styles.readinessDoneText}>완료</span>
       ) : canConnectRoute ? (
-        <button type="button" className={styles.readinessActionBtn} onClick={onConnectEdges}>
+        <button
+          type="button"
+          className={styles.readinessActionBtn}
+          disabled={editingLocked}
+          aria-describedby={editingLocked ? editingLockHintId : undefined}
+          onClick={onConnectEdges}
+        >
           엣지 연결
         </button>
       ) : (
