@@ -21,6 +21,7 @@ import type { UserZoneWithCells } from '@apis/floors/floorQueries';
 import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
 import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTrainingSessionsQuery';
 
+import AlertIcon from '@assets/icons/ic-alert.svg?react';
 import CheckIcon from '@assets/icons/ic-check.svg?react';
 import ChevronRightIcon from '@assets/icons/ic-chevron-right.svg?react';
 import EditIcon from '@assets/icons/ic-edit.svg?react';
@@ -66,6 +67,10 @@ import {
   updateMapNodePosition,
   updateNodeStartCandidate,
 } from './api/mapGraphApi';
+import {
+  floorRouteDiagnosisQueryKey,
+  useFloorRouteDiagnosisQuery,
+} from './api/useFloorRouteDiagnosisQuery';
 import { createUserZone, deleteUserZone } from './api/userZoneApi';
 import AddActionMenu from './components/AddActionMenu';
 import DeviceCard from './components/DeviceCard';
@@ -461,6 +466,37 @@ const FloorPlansDetailPage = () => {
     },
   });
   const graphData = graphQuery.data ?? EMPTY_GRAPH;
+
+  // 현재 층 대체 경로 진단 결과
+  const routeDiagnosisQuery = useFloorRouteDiagnosisQuery(floorId, isFloorReady);
+  // 도면 진단 강조 표시 여부
+  const [isDiagnosisHighlighted, setIsDiagnosisHighlighted] = useState(false);
+
+  // 층 전환·진단 완료 시 강조 상태 초기화
+  useEffect(() => {
+    setIsDiagnosisHighlighted(false);
+  }, [floorId, routeDiagnosisQuery.data?.ready]);
+
+  // 캔버스 진단 강조 대상
+  const routeDiagnosisHighlight = useMemo(() => {
+    const diagnosis = routeDiagnosisQuery.data;
+    if (!isDiagnosisHighlighted || diagnosis?.ready !== false) return undefined;
+    return {
+      unreachableNodeIds: diagnosis.unreachableNodeIds ?? [],
+      limitedExitStartNodeIds:
+        diagnosis.startCandidates
+          ?.filter(
+            ({ nodeId, reachableExitCount }) =>
+              Boolean(nodeId) && reachableExitCount !== undefined && reachableExitCount <= 1,
+          )
+          .map(({ nodeId }) => nodeId as string) ?? [],
+      undesignatedStairNodeIds: diagnosis.undesignatedStairNodeIds ?? [],
+    };
+  }, [isDiagnosisHighlighted, routeDiagnosisQuery.data]);
+
+  // 그래프 변경 후 진단 갱신
+  const invalidateFloorRouteDiagnosis = () =>
+    queryClient.invalidateQueries({ queryKey: floorRouteDiagnosisQueryKey(floorId) });
 
   const updateGraphCache = (updater: (prev: FloorGraph) => FloorGraph) => {
     queryClient.setQueryData<FloorGraph>(floorQueryKeys.graph(floorId), (prev) =>
@@ -998,6 +1034,7 @@ const FloorPlansDetailPage = () => {
         })
           .then((newNode) => {
             updateGraphCache((prev) => ({ ...prev, nodes: [...prev.nodes, newNode] }));
+            void invalidateFloorRouteDiagnosis();
           })
           .catch((error: unknown) => {
             // 지금까지 문/계단/복도가 실패한 적이 없어서 안 드러났을 뿐, 실패해도 조용히
@@ -1368,18 +1405,22 @@ const FloorPlansDetailPage = () => {
       y: node.y / canvasH,
       type: nextType,
       isExitTarget: nextIsFinalExit,
-    }).catch((error: unknown) => {
-      updateGraphCache((prev) => ({
-        ...prev,
-        nodes: prev.nodes.map((n) => (n.id === id ? { ...n, type: originalType } : n)),
-      }));
-      // 마지막 남은 탈출구는 해제할 수 없는 등 서버가 이유를 message로 내려주므로 그대로 보여줌
-      const { message: serverMessage } = extractApiError(error);
-      show({
-        title: serverMessage || '최종 탈출구 지정에 실패했습니다.',
-        variant: 'error',
+    })
+      .then(() => {
+        void invalidateFloorRouteDiagnosis();
+      })
+      .catch((error: unknown) => {
+        updateGraphCache((prev) => ({
+          ...prev,
+          nodes: prev.nodes.map((n) => (n.id === id ? { ...n, type: originalType } : n)),
+        }));
+        // 마지막 남은 탈출구는 해제할 수 없는 등 서버가 이유를 message로 내려주므로 그대로 보여줌
+        const { message: serverMessage } = extractApiError(error);
+        show({
+          title: serverMessage || '최종 탈출구 지정에 실패했습니다.',
+          variant: 'error',
+        });
       });
-    });
   };
 
   // 훈련 시작 후보는 문·출입구 노드에서만 지정(BE PR #225). 타입·위치는 안 바뀌고
@@ -1404,6 +1445,7 @@ const FloorPlansDetailPage = () => {
             n.id === id ? { ...n, isStartCandidate: updated.isStartCandidate } : n,
           ),
         }));
+        void invalidateFloorRouteDiagnosis();
       })
       .catch((error: unknown) => {
         updateGraphCache((prev) => ({
@@ -1485,6 +1527,7 @@ const FloorPlansDetailPage = () => {
           edges: prev.edges.filter((edge) => edge.fromNodeId !== id && edge.toNodeId !== id),
         }));
         setEditingStructureId((prev) => (prev === id ? null : prev));
+        void invalidateFloorRouteDiagnosis();
       })
       .catch((error: unknown) => {
         // 유도등 판단 노드로 참조 중이거나 마지막 탈출구인 경우 등 서버가 이유를 message로 내려줌
@@ -1632,6 +1675,7 @@ const FloorPlansDetailPage = () => {
       });
       if (succeeded.length > 0) {
         updateGraphCache((prev) => ({ ...prev, edges: [...prev.edges, ...succeeded] }));
+        void invalidateFloorRouteDiagnosis();
         show({ title: `${succeeded.length}개 구간이 연결되었습니다.`, variant: 'success' });
       }
       if (failedLabels.length > 0) {
@@ -1657,6 +1701,7 @@ const FloorPlansDetailPage = () => {
       .then(() => {
         updateGraphCache((prev) => ({ ...prev, edges: prev.edges.filter((e) => e.id !== edgeId) }));
         setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
+        void invalidateFloorRouteDiagnosis();
       })
       .catch(() => {});
   };
@@ -1970,11 +2015,18 @@ const FloorPlansDetailPage = () => {
       .filter((x) => x.type === n.type)
       .findIndex((x) => x.id === n.id);
     const isEditing = editingStructureId === n.id;
+    // 탈출구 도달 불가 구조 노드 여부
+    const isDiagnosisUnreachable =
+      isDiagnosisHighlighted && routeDiagnosisQuery.data?.unreachableNodeIds?.includes(n.id);
     return (
       <div
         key={n.id}
         data-panel-id={n.id}
-        className={clsx(styles.deviceCard, isNodeSelected(n.id) && styles.deviceCardSelected)}
+        className={clsx(
+          styles.deviceCard,
+          isNodeSelected(n.id) && styles.deviceCardSelected,
+          isDiagnosisUnreachable && styles.deviceCardDiagnosisError,
+        )}
         onClick={() => handleZoneRefSelect({ kind: 'node', id: n.id })}
       >
         <div className={styles.zoneCardHeader}>
@@ -1987,8 +2039,13 @@ const FloorPlansDetailPage = () => {
                   : ZONE_CARD_DOT_CLASS[n.type],
               )}
             />
-            <span className={styles.deviceCardName}>
-              {STRUCTURE_NODE_LABEL[n.type]} {sameTypeIndex + 1}
+            <span className={styles.zoneCardTitleText}>
+              <span className={styles.deviceCardName}>
+                {STRUCTURE_NODE_LABEL[n.type]} {sameTypeIndex + 1}
+              </span>
+              {isDiagnosisUnreachable && (
+                <span className={styles.diagnosisCardHint}>출구와 연결 안 됨</span>
+              )}
             </span>
           </span>
           <span className={styles.zoneCardHeaderActions}>
@@ -2643,6 +2700,8 @@ const FloorPlansDetailPage = () => {
                 hasFinalExit={structureNodes.some((n) => n.isFinalExit)}
                 hasStair={structureNodes.some((n) => n.type === 'stair')}
                 hasRouteToExit={hasRouteFromStartToExit}
+                routeDiagnosis={routeDiagnosisQuery.isError ? undefined : routeDiagnosisQuery.data}
+                isDiagnosisHighlighted={isDiagnosisHighlighted}
                 editingLocked={editingLocked}
                 editingLockHintId={EDITING_LOCK_HINT_ID}
                 onAddStartNode={() => {
@@ -2656,6 +2715,7 @@ const FloorPlansDetailPage = () => {
                   setDeviceTypeFilter([]);
                 }}
                 onConnectEdges={handleOpenEdgeAdd}
+                onToggleDiagnosisHighlight={() => setIsDiagnosisHighlighted((current) => !current)}
               />
             )}
 
@@ -2864,6 +2924,34 @@ const FloorPlansDetailPage = () => {
               </div>
             )}
 
+            {(routeDiagnosisQuery.data?.ready === true ||
+              (isDiagnosisHighlighted && routeDiagnosisQuery.data?.ready === false)) && (
+              <div
+                className={styles.canvasDiagnosisAlert({
+                  tone: routeDiagnosisQuery.data.ready ? 'success' : 'danger',
+                })}
+                role={routeDiagnosisQuery.data.ready ? 'status' : 'alert'}
+              >
+                <span
+                  className={styles.canvasDiagnosisAlertIcon({
+                    tone: routeDiagnosisQuery.data.ready ? 'success' : 'danger',
+                  })}
+                  aria-hidden="true"
+                >
+                  {routeDiagnosisQuery.data.ready ? (
+                    <CheckIcon width={12} height={12} />
+                  ) : (
+                    <AlertIcon width={12} height={12} />
+                  )}
+                </span>
+                <span className={styles.canvasDiagnosisAlertMessage}>
+                  {routeDiagnosisQuery.data.ready
+                    ? '모든 시작 후보가 2곳 이상의 탈출구와 연결되어 있어요.'
+                    : '빨간색 노드는 탈출구로 이어지는 경로가 없어요. 가까운 노드와 엣지로 연결해 주세요.'}
+                </span>
+              </div>
+            )}
+
             <div className={styles.canvasScrollArea}>
               {floorDetailQuery.isError && !currentFloor ? (
                 // 실제로 없는 층(404 등)일 때만 안내. 목록 캐시에 아직 안 들어온 층을 직접
@@ -2945,6 +3033,7 @@ const FloorPlansDetailPage = () => {
                   onUpload={() => setUploadModalOpen(true)}
                   editingLocked={editingLocked}
                   editingLockHintId={EDITING_LOCK_HINT_ID}
+                  routeDiagnosisHighlight={routeDiagnosisHighlight}
                 />
               ) : (
                 <LoadingState message="도면을 불러오는 중..." />
@@ -2954,7 +3043,9 @@ const FloorPlansDetailPage = () => {
 
           {/* 캔버스 우하단 — 범례 정보 아이콘을 줌 컨트롤 바로 위에 세로로 쌓음 */}
           <div className={styles.canvasBottomRightColumn}>
-            {currentFloor?.segmentationStatus === 'DONE' && <NodeTypeLegendInfo />}
+            {currentFloor?.segmentationStatus === 'DONE' && (
+              <NodeTypeLegendInfo diagnosisVisible={isDiagnosisHighlighted} />
+            )}
             <div className={styles.canvasZoomFloat}>
               <button
                 type="button"

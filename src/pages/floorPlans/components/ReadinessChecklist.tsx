@@ -1,3 +1,7 @@
+import type { FloorRouteDiagnosisResponse } from '@apis/__generated__/data-contracts';
+
+import AlertIcon from '@assets/icons/ic-alert.svg?react';
+
 import StepProgress from '@components/progress/StepProgress';
 import type { ProgressStep } from '@components/progress/StepProgress';
 
@@ -21,12 +25,15 @@ interface ReadinessChecklistProps {
   hasFinalExit: boolean;
   hasStair: boolean;
   hasRouteToExit: boolean;
+  routeDiagnosis?: FloorRouteDiagnosisResponse;
+  isDiagnosisHighlighted: boolean;
   editingLocked?: boolean;
   editingLockHintId?: string;
   onAddStartNode: () => void;
   onAddStair: () => void;
   onFocusDeviceCards: () => void;
   onConnectEdges: () => void;
+  onToggleDiagnosisHighlight: () => void;
 }
 
 const ReadinessChecklist = ({
@@ -34,12 +41,15 @@ const ReadinessChecklist = ({
   hasFinalExit,
   hasStair,
   hasRouteToExit,
+  routeDiagnosis,
+  isDiagnosisHighlighted,
   editingLocked = false,
   editingLockHintId,
   onAddStartNode,
   onAddStair,
   onFocusDeviceCards,
   onConnectEdges,
+  onToggleDiagnosisHighlight,
 }: ReadinessChecklistProps) => {
   // 시작/탈출구가 모두 준비돼야 엣지 연결 버튼을 누를 수 있음 — 그 전엔 항목은 보이되
   // 버튼을 비활성화함(안내 문구는 짧게 고정 — 뭐가 부족한지는 위 두 항목에서 이미 보임)
@@ -123,6 +133,21 @@ const ReadinessChecklist = ({
     },
   ];
 
+  if (routeDiagnosis?.ready === true) {
+    steps.push({
+      label: '대체 경로',
+      status: 'done',
+      action: <span className={styles.readinessDoneText}>완료</span>,
+    });
+  }
+
+  const unreachableNodeCount = routeDiagnosis?.unreachableNodeIds?.length ?? 0;
+  const limitedExitStartCount =
+    routeDiagnosis?.startCandidates?.filter(
+      ({ reachableExitCount }) => reachableExitCount !== undefined && reachableExitCount <= 1,
+    ).length ?? 0;
+  const undesignatedStairCount = routeDiagnosis?.undesignatedStairNodeIds?.length ?? 0;
+
   return (
     <div className={styles.readinessCard}>
       <div className={styles.readinessHeader}>훈련 준비 체크리스트</div>
@@ -131,6 +156,51 @@ const ReadinessChecklist = ({
       </span>
 
       <StepProgress steps={steps} />
+
+      {routeDiagnosis?.ready === false && (
+        <section className={styles.diagnosisWarning} aria-label="대체 경로 진단 결과">
+          <div className={styles.diagnosisHeader}>
+            <span className={styles.diagnosisIcon} aria-hidden="true">
+              <AlertIcon width={13} height={13} />
+            </span>
+            <strong className={styles.diagnosisTitle}>대체 경로</strong>
+            <span className={styles.diagnosisBadge}>권장</span>
+          </div>
+
+          <p className={styles.diagnosisDescription}>
+            일부 시작 후보는 연결된 탈출구가 1곳뿐이에요. 훈련은 시작할 수 있지만, 해당 경로가
+            막히면 대체 경로를 찾을 수 없어요. 노드와 엣지 연결을 확인해 주세요.
+          </p>
+
+          <dl className={styles.diagnosisStats}>
+            <div className={styles.diagnosisStatRow}>
+              <dt>출구와 끊긴 노드</dt>
+              <dd className={styles.diagnosisStatValue}>{unreachableNodeCount}개</dd>
+            </div>
+            <div className={styles.diagnosisStatRow}>
+              <dt>탈출구가 1곳 이하인 시작 후보</dt>
+              <dd className={styles.diagnosisStatValue}>{limitedExitStartCount}개</dd>
+            </div>
+            {undesignatedStairCount > 0 && (
+              <div className={styles.diagnosisStatRow}>
+                <dt>탈출구 미지정 계단 (참고)</dt>
+                <dd className={styles.diagnosisStatValue}>{undesignatedStairCount}개</dd>
+              </div>
+            )}
+          </dl>
+
+          <div className={styles.diagnosisActionRow}>
+            <button
+              type="button"
+              className={styles.diagnosisAction}
+              aria-pressed={isDiagnosisHighlighted}
+              onClick={onToggleDiagnosisHighlight}
+            >
+              {isDiagnosisHighlighted ? '표시 끄기' : '도면에서 보기'}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

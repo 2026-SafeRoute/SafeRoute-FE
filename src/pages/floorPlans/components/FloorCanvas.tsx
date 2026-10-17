@@ -17,6 +17,7 @@ import type { AddedDevice } from '../constants/devicePlacement';
 import type { StructureNode } from '../constants/structureNode';
 import type { SelectedItem, ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
 import type { DeviceMarker, Floor } from '../types/floorPlans';
+import type { FloorRouteDiagnosisHighlight } from '../types/routeDiagnosis';
 import type { LightPickFieldName } from '../utils/lightPick';
 
 const CANVAS_RENDER_WIDTH = 700;
@@ -70,6 +71,7 @@ interface FloorCanvasProps {
   lightPreviewRightEdgeId?: string;
   lightPickField?: LightPickFieldName | null;
   onLightPick?: (id: string) => void;
+  routeDiagnosisHighlight?: FloorRouteDiagnosisHighlight;
 }
 
 /* ── 도면 캔버스 ── */
@@ -122,6 +124,7 @@ const FloorCanvas = ({
   lightPreviewRightEdgeId,
   lightPickField,
   onLightPick,
+  routeDiagnosisHighlight,
 }: FloorCanvasProps) => {
   const hasFloorPlan = floor.segmentationStatus === 'DONE';
 
@@ -216,6 +219,7 @@ const FloorCanvas = ({
           lightPickField={lightPickField}
           onLightPick={onLightPick}
           editingLocked={editingLocked}
+          routeDiagnosisHighlight={routeDiagnosisHighlight}
         />
         {stagedCameraPosition && (
           <div

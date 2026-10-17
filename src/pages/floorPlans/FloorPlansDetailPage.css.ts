@@ -1,4 +1,5 @@
 import { keyframes, style } from '@vanilla-extract/css';
+import { recipe } from '@vanilla-extract/recipes';
 
 import { vars } from '@styles/global.css';
 
@@ -104,6 +105,61 @@ export const canvasTopRightRow = style({
   display: 'flex',
   alignItems: 'center',
   gap: vars.space.s2,
+});
+
+export const canvasDiagnosisAlert = recipe({
+  base: {
+    position: 'absolute',
+    zIndex: 9,
+    top: vars.space.s6,
+    left: vars.space.s6,
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: vars.space.s2,
+    border: '1px solid',
+    borderRadius: vars.radius.md,
+    padding: `${vars.space.s2} ${vars.space.s3}`,
+    maxWidth: 'min(58rem, calc(100% - 18rem))',
+    ...vars.typography.captionMedium,
+  },
+  variants: {
+    tone: {
+      success: {
+        borderColor: vars.color.success,
+        backgroundColor: vars.color.successLight,
+        color: vars.color.successText,
+      },
+      danger: {
+        borderColor: vars.color.danger,
+        backgroundColor: vars.color.dangerSurface,
+        color: vars.color.dangerText,
+      },
+    },
+  },
+});
+
+export const canvasDiagnosisAlertIcon = recipe({
+  base: {
+    display: 'flex',
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    width: '1.8rem',
+    height: '1.8rem',
+    color: vars.color.white,
+  },
+  variants: {
+    tone: {
+      success: { backgroundColor: vars.color.success },
+      danger: { backgroundColor: vars.color.danger },
+    },
+  },
+});
+
+export const canvasDiagnosisAlertMessage = style({
+  minWidth: 0,
+  lineHeight: '1.5',
 });
 
 export const canvasActionButton = style({
@@ -637,6 +693,54 @@ export const nodeTypeCctvBadge = style({
   fontWeight: 700,
 });
 
+export const diagnosisLegendMarker = style({
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexShrink: 0,
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '2px solid',
+  borderRadius: '50%',
+  width: '1.8rem',
+  height: '1.8rem',
+});
+
+export const diagnosisLegendMarkerDanger = style({
+  borderColor: vars.color.danger,
+});
+
+export const diagnosisLegendMarkerWarning = style({
+  borderColor: vars.color.warning,
+});
+
+export const diagnosisLegendMarkerNeutral = style({
+  borderStyle: 'dashed',
+  borderColor: vars.color.gray300,
+});
+
+export const diagnosisLegendNode = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '50%',
+  width: '0.8rem',
+  height: '0.8rem',
+});
+
+export const diagnosisLegendNodeDanger = style({
+  backgroundColor: vars.color.danger,
+});
+
+export const diagnosisLegendNodeStart = style({
+  backgroundColor: zoneStartColor,
+});
+
+export const diagnosisLegendNodeStair = style({
+  lineHeight: 1,
+  color: vars.color.gray300,
+  fontSize: '0.7rem',
+});
+
 /* ── 우측 장비 목록 패널 ── */
 export const devicePanel = style({
   display: 'flex',
@@ -781,6 +885,11 @@ export const deviceCardSelected = style({
   backgroundColor: vars.color.primaryLight2,
 });
 
+export const deviceCardDiagnosisError = style({
+  borderColor: vars.color.danger,
+  backgroundColor: vars.color.dangerSurface,
+});
+
 export const zoneCardHeader = style({
   display: 'flex',
   alignItems: 'center',
@@ -794,6 +903,18 @@ export const zoneCardTitleGroup = style({
   alignItems: 'center',
   gap: vars.space.s2,
   minWidth: 0,
+});
+
+export const zoneCardTitleText = style({
+  display: 'flex',
+  flex: 1,
+  flexDirection: 'column',
+  minWidth: 0,
+});
+
+export const diagnosisCardHint = style({
+  color: vars.color.danger,
+  ...vars.typography.caption,
 });
 
 export const zoneCardDot = style({
@@ -1039,7 +1160,7 @@ export const zoneCardIconBtnDelete = style([
     borderColor: vars.color.dangerLight,
     color: vars.color.danger,
     selectors: {
-      '&:hover': { backgroundColor: '#FFF5F5' },
+      '&:hover': { backgroundColor: vars.color.dangerHoverBg },
     },
   },
 ]);
