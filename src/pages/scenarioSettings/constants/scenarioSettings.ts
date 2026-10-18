@@ -40,6 +40,12 @@ export const PREVIEW_STATUS: PreviewStatus = {
   dot: true,
 };
 
+export const PREVIEW_WARNING_STATUS: PreviewStatus = {
+  label: '확인 필요',
+  color: 'yellow',
+  dot: true,
+};
+
 export const LIVE_STATUS: PreviewStatus = {
   label: '진행중',
   color: 'green',

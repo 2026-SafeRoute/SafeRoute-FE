@@ -19,6 +19,12 @@ export const ROUTES = {
 export const getScenarioDetailPath = (scenarioId: string) =>
   ROUTES.SCENARIO_DETAIL.replace(':scenarioId', encodeURIComponent(scenarioId));
 
+export const getFloorPlanDetailPath = (buildingId: string, floorId: string) =>
+  ROUTES.FLOOR_PLANS_DETAIL.replace(':buildingId', encodeURIComponent(buildingId)).replace(
+    ':floorId',
+    encodeURIComponent(floorId),
+  );
+
 export const getTrainingCamerasPath = (sessionId: string) =>
   ROUTES.TRAINING_CAMERAS.replace(':sessionId', encodeURIComponent(sessionId));
 
