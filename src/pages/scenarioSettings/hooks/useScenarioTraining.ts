@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import type { TrainingSessionSummaryResponse } from '@apis/__generated__/data-contracts';
+import { setScenarioInProgressCache } from '@apis/scenarios/scenarioCache';
 import { scenarioQueryKeys } from '@apis/scenarios/scenarioQueryKeys';
 import { getScenario } from '@apis/scenarios/scenariosApi';
 import { SCENARIO_STATUS } from '@apis/scenarios/scenarioTypes';
@@ -225,23 +226,7 @@ export const useScenarioTraining = ({ scenario, adminId }: UseScenarioTrainingPa
       throw new Error('시작된 훈련 세션 정보가 없습니다.');
     }
 
-    queryClient.setQueryData<Scenario>(scenarioQueryKeys.detail(scenario.id), (current) => ({
-      ...(current ?? scenario),
-      status: SCENARIO_STATUS.IN_PROGRESS,
-      deletable: false,
-    }));
-    queryClient.setQueryData<Scenario[]>(scenarioQueryKeys.list(), (current) =>
-      current?.map((item) =>
-        item.id === scenario.id
-          ? { ...item, status: SCENARIO_STATUS.IN_PROGRESS, deletable: false }
-          : item,
-      ),
-    );
-    void queryClient.invalidateQueries({
-      queryKey: scenarioQueryKeys.list(),
-      exact: true,
-      refetchType: 'none',
-    });
+    setScenarioInProgressCache(queryClient, scenario.id, scenario);
     setStartedSession({ id: session.id, startedAt: session.startedAt });
     setConfirmedFailedSessionId(null);
     setSessionEndedAt(null);
