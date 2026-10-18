@@ -30,6 +30,9 @@ const GRAPH_NODE_COLOR: Record<'ROOM' | 'HALLWAY' | 'EXIT' | 'CUSTOM', string> =
 // 계단 노드 삼각형 아이콘 크기 — 글자(▲)는 위치마다 픽셀 정렬이 달라 크기가 들쭉날쭉해 보여 도형으로 고정
 const STAIR_ICON_SIZE = 7;
 
+// 그래프 노드 진단 강조 링 반지름 — 엣지 체인 선택 링(9)보다 바깥에 그려 둘 다 보이게 함
+const GRAPH_DIAGNOSIS_RING_RADIUS = 11;
+
 interface FloorCanvasSvgProps {
   mapImageUrl: string | null;
   canvasH: number;
@@ -563,16 +566,30 @@ const FloorCanvasSvg = ({
               />
             )}
             {isUnreachable && (
-              <circle cx={x} cy={y} r={9} fill="none" stroke={vars.color.danger} strokeWidth="2" />
+              <circle
+                cx={x}
+                cy={y}
+                r={GRAPH_DIAGNOSIS_RING_RADIUS}
+                fill="none"
+                stroke={vars.color.danger}
+                strokeWidth="2"
+              />
             )}
             {!isUnreachable && isLimitedExitStart && (
-              <circle cx={x} cy={y} r={9} fill="none" stroke={vars.color.warning} strokeWidth="2" />
+              <circle
+                cx={x}
+                cy={y}
+                r={GRAPH_DIAGNOSIS_RING_RADIUS}
+                fill="none"
+                stroke={vars.color.warning}
+                strokeWidth="2"
+              />
             )}
             {!isUnreachable && !isLimitedExitStart && isUndesignatedStair && (
               <circle
                 cx={x}
                 cy={y}
-                r={9}
+                r={GRAPH_DIAGNOSIS_RING_RADIUS}
                 fill="none"
                 stroke={vars.color.gray300}
                 strokeWidth="2"
