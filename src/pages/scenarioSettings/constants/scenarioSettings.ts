@@ -51,3 +51,7 @@ export const LIVE_STATUS: PreviewStatus = {
   color: 'green',
   dot: true,
 };
+
+export const ROUTE_RECALCULATION_EXPIRED_TITLE = '경로 변경 제안이 만료되었어요.';
+export const ROUTE_RECALCULATION_EXPIRED_MESSAGE =
+  '혼잡 상황이 바뀌어 이 제안은 더 이상 유효하지 않아요.';
