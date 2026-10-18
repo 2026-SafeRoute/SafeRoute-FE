@@ -5,23 +5,11 @@ import { useLocation, useNavigate } from 'react-router';
 
 import { useGetTrainingStatusQuery } from '@pages/home/api/useTrainingStatusQuery';
 import type { RunningTrainingStatusResponse } from '@pages/home/types/home';
-import {
-  routeRecalculationDetailQueryOptions,
-  routeRecalculationQueryKeys,
-} from '@pages/scenarioSettings/api/routeRecalculations/routeRecalculationQueries';
-import {
-  ROUTE_RECALCULATION_EXPIRED_MESSAGE,
-  ROUTE_RECALCULATION_EXPIRED_TITLE,
-} from '@pages/scenarioSettings/constants/scenarioSettings';
-import { getRouteEventStatus } from '@pages/scenarioSettings/utils/trainingRouteEvents';
 import { monitoringQueryKeys } from '@pages/trainingAnalysis/api/monitoringQueryKeys';
 import { useSessionContextQuery } from '@pages/trainingAnalysis/api/useSessionContextQuery';
 import type { TrainingSessionContext } from '@pages/trainingAnalysis/types/trainingAnalysis';
 
-import type {
-  RouteRecalculationSummaryResponse,
-  TrainingSessionSummaryResponse,
-} from '@apis/__generated__/data-contracts';
+import type { TrainingSessionSummaryResponse } from '@apis/__generated__/data-contracts';
 import { scenarioQueryKeys } from '@apis/scenarios/scenarioQueryKeys';
 import {
   SESSION_DISCOVERY_POLL_INTERVAL_MS,
@@ -32,7 +20,6 @@ import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTraini
 import { TRAINING_EVENT_TYPE } from '@apis/trainingSessions/websocket/trainingSessionEvents';
 import type {
   EvacuationRouteBlockedEventData,
-  RouteRecalculationEventData,
   TrainingSessionEvent,
   TrainingStatusEventData,
 } from '@apis/trainingSessions/websocket/trainingSessionEvents';
@@ -44,41 +31,19 @@ import { getScenarioDetailPath, ROUTES } from '@constants/path';
 
 import { formatDuration } from '@utils/format';
 
+import { useRouteRecalculationNotifications } from '../hooks/useRouteRecalculationNotifications';
+
 interface SessionNotificationProps {
   session: TrainingSessionSummaryResponse;
   onEnded: (sessionId: string) => void;
 }
-
-interface ActiveRouteToast {
-  id: string;
-  recalculationId?: string;
-}
-
-const getRouteRecalculationId = (data: RouteRecalculationEventData) =>
-  data.recalculationId ??
-  data.eventId?.match(
-    /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
-  )?.[0] ??
-  data.eventId;
-
-const isSameRouteRecalculation = (
-  activeRecalculationId: string | undefined,
-  eventRecalculationId: string | undefined,
-) =>
-  Boolean(
-    activeRecalculationId &&
-    eventRecalculationId &&
-    (activeRecalculationId === eventRecalculationId ||
-      eventRecalculationId.startsWith(activeRecalculationId) ||
-      activeRecalculationId.startsWith(eventRecalculationId)),
-  );
 
 const isActiveSessionStatus = (status: TrainingStatusEventData['status'] | undefined) =>
   status === TRAINING_SESSION_STATUS.RUNNING || status === TRAINING_SESSION_STATUS.SCHEDULED;
 
 // RUNNING 목록에서 사라져도 상세 조회로 실제 종료 상태를 확인할 때까지 구독을 유지한다.
 const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => {
-  const { show, update, dismiss } = useToast();
+  const { show } = useToast();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -89,14 +54,16 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
     context?.status === TRAINING_SESSION_STATUS.STOPPED ||
     context?.status === TRAINING_SESSION_STATUS.CANCELLED;
   const completed = context?.status === TRAINING_SESSION_STATUS.COMPLETED;
-  const processedRouteEventKeys = useRef(new Set<string>());
-  const activeRouteToast = useRef<ActiveRouteToast>();
   const lastRouteBlockedEvent = useRef<string>();
   const isScenarioPage = Boolean(
     session.scenarioId && pathname === getScenarioDetailPath(session.scenarioId),
   );
   const isTrainingAnalysisPage =
     pathname === ROUTES.TRAINING_ANALYSIS || pathname.startsWith(`${ROUTES.TRAINING_ANALYSIS}/`);
+  const handleRouteRecalculationEvent = useRouteRecalculationNotifications({
+    session,
+    isScenarioPage,
+  });
 
   const showRouteBlockedWarning = useCallback(
     ({
@@ -117,49 +84,6 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
       });
     },
     [show],
-  );
-
-  const syncRouteRecalculationCache = useCallback(
-    (
-      event: TrainingSessionEvent<RouteRecalculationEventData>,
-      recalculationId: string | undefined,
-    ) => {
-      if (!recalculationId) return;
-
-      const params = { trainingSessionId: event.sessionId };
-      const status = getRouteEventStatus(event);
-      const eventSummary: RouteRecalculationSummaryResponse = {
-        recalculationId,
-        trainingSessionId: event.sessionId,
-        status,
-        requestedAt: event.occurredAt,
-        triggerEdgeId: event.data.triggerEdgeId ?? undefined,
-        triggerType: event.data.triggerType,
-        congestionLevel: event.data.congestionLevel ?? undefined,
-      };
-
-      queryClient.setQueryData<RouteRecalculationSummaryResponse[]>(
-        routeRecalculationQueryKeys.list(params),
-        (items) => {
-          const existing = items?.find((item) => item.recalculationId === recalculationId);
-          if (!existing && status !== 'PENDING' && status !== 'CANCELLED') return items;
-
-          const updated = {
-            ...existing,
-            ...eventSummary,
-            requestedAt: existing?.requestedAt ?? eventSummary.requestedAt,
-          };
-          return existing
-            ? items?.map((item) => (item.recalculationId === recalculationId ? updated : item))
-            : [updated, ...(items ?? [])];
-        },
-      );
-
-      if (status === 'PENDING') {
-        void queryClient.prefetchQuery(routeRecalculationDetailQueryOptions(recalculationId));
-      }
-    },
-    [queryClient],
   );
 
   useTrainingSessionSocket({
@@ -196,69 +120,7 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
         showRouteBlockedWarning(blockedEvent.data);
         return;
       }
-      if (
-        event.eventType !== TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_REQUESTED &&
-        event.eventType !== TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_CANCELLED &&
-        event.eventType !== TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_APPROVED &&
-        event.eventType !== TRAINING_EVENT_TYPE.EVACUATION_ROUTE_UPDATED &&
-        event.eventType !== TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_REJECTED
-      ) {
-        return;
-      }
-
-      const routeEvent = event as TrainingSessionEvent<RouteRecalculationEventData>;
-      const recalculationId = getRouteRecalculationId(routeEvent.data);
-      const eventKey = `${event.eventType}:${recalculationId ?? event.occurredAt}`;
-      if (processedRouteEventKeys.current.has(eventKey)) return;
-      processedRouteEventKeys.current.add(eventKey);
-      syncRouteRecalculationCache(routeEvent, recalculationId);
-
-      if (event.eventType === TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_REQUESTED) {
-        if (isScenarioPage) return;
-
-        const requestToast = {
-          title: '대피 경로 재탐색 요청이 도착했습니다.',
-          description: `${session.scenarioName ?? '진행 중인 훈련'}의 시나리오 화면에서 경로 변경 제안을 확인해 주세요.`,
-          variant: 'warning' as const,
-          duration: 0,
-          actionLabel: '시나리오로 이동',
-          onAction: () => {
-            activeRouteToast.current = undefined;
-            if (session.scenarioId) void navigate(getScenarioDetailPath(session.scenarioId));
-          },
-        };
-        const currentToast = activeRouteToast.current;
-        const toastId =
-          currentToast && update(currentToast.id, requestToast)
-            ? currentToast.id
-            : show(requestToast);
-        activeRouteToast.current = { id: toastId, recalculationId };
-        return;
-      }
-
-      const currentToast = activeRouteToast.current;
-      if (
-        !currentToast ||
-        !isSameRouteRecalculation(currentToast.recalculationId, recalculationId)
-      ) {
-        return;
-      }
-
-      if (event.eventType === TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_CANCELLED) {
-        const updated = update(currentToast.id, {
-          title: ROUTE_RECALCULATION_EXPIRED_TITLE,
-          description: ROUTE_RECALCULATION_EXPIRED_MESSAGE,
-          variant: 'default',
-          icon: 'info',
-          descriptionNoWrap: true,
-          duration: 0,
-        });
-        if (!updated) activeRouteToast.current = undefined;
-        return;
-      }
-
-      dismiss(currentToast.id);
-      activeRouteToast.current = undefined;
+      handleRouteRecalculationEvent(event);
     },
   });
 
