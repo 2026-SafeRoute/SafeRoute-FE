@@ -128,8 +128,9 @@ export const useRouteRecalculationNotifications = ({
 
         const requestToast = {
           title: '대피 경로 재탐색 요청이 도착했습니다.',
-          description: `${session.scenarioName ?? '진행 중인 훈련'}의 시나리오 화면에서 경로 변경 제안을 확인해 주세요.`,
+          description: `${session.scenarioName ? `"${session.scenarioName}"` : '진행 중인 훈련'}의 시나리오 화면에서 경로 변경 제안을 확인해 주세요.`,
           variant: 'warning' as const,
+          descriptionNoWrap: true,
           duration: 0,
           actionLabel: '시나리오로 이동',
           onAction: () => {

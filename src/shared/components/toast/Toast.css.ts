@@ -71,7 +71,7 @@ export const container = recipe({
     },
     wide: {
       true: {
-        maxWidth: 'min(56rem, calc(100vw - 4.8rem))',
+        maxWidth: 'min(64rem, calc(100vw - 4.8rem))',
       },
       false: {},
     },
@@ -139,7 +139,8 @@ export const description = recipe({
       error: { color: vars.color.dangerText },
     },
     noWrap: {
-      true: { whiteSpace: 'nowrap' },
+      // 긴 시나리오명 등으로 최대 너비를 넘으면 말줄임으로 자름
+      true: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
       false: {},
     },
   },
