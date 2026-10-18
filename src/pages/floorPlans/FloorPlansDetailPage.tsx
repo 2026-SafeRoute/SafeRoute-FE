@@ -163,7 +163,7 @@ const FloorPlansDetailPage = () => {
     markAwaitingUploadAnalysis,
     canvasH,
     resolvedMapImageUrl,
-    routeDiagnosisQuery,
+    routeDiagnosis,
     isDiagnosisHighlighted,
     toggleDiagnosisHighlight,
     routeDiagnosisHighlight,
@@ -922,7 +922,7 @@ const FloorPlansDetailPage = () => {
              새로고침 전엔 안 뜨던 문제. 캔버스도 아래에서 resolvedFloor로 판단함 */}
           {resolvedFloor?.segmentationStatus === 'DONE' && (
             <ReadinessChecklist
-              routeDiagnosis={routeDiagnosisQuery.isError ? undefined : routeDiagnosisQuery.data}
+              routeDiagnosis={routeDiagnosis}
               isDiagnosisHighlighted={isDiagnosisHighlighted}
               editingLocked={editingLocked}
               status={{
@@ -1037,7 +1037,7 @@ const FloorPlansDetailPage = () => {
               onAddEdge={handleOpenEdgeAdd}
             />
           }
-          diagnosisReady={routeDiagnosisQuery.data?.ready}
+          routeDiagnosis={routeDiagnosis}
           isDiagnosisHighlighted={isDiagnosisHighlighted}
           zoom={zoom}
           onZoomChange={setZoom}
@@ -1142,8 +1142,7 @@ const FloorPlansDetailPage = () => {
                   selected={isNodeSelected(n.id)}
                   editing={editingStructureId === n.id}
                   diagnosisUnreachable={
-                    isDiagnosisHighlighted &&
-                    !!routeDiagnosisQuery.data?.unreachableNodeIds?.includes(n.id)
+                    isDiagnosisHighlighted && !!routeDiagnosis?.unreachableNodeIds?.includes(n.id)
                   }
                   startCandidatePending={startCandidatePendingIds.has(n.id)}
                   editingLocked={editingLocked}

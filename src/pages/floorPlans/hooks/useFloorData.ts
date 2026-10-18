@@ -147,7 +147,7 @@ export const useFloorData = ({ buildingId, floorId }: UseFloorDataParams) => {
   }, [floorId, isFloorReady, show, queryClient]);
 
   const {
-    routeDiagnosisQuery,
+    routeDiagnosis,
     isDiagnosisHighlighted,
     toggleDiagnosisHighlight,
     routeDiagnosisHighlight,
@@ -296,7 +296,7 @@ export const useFloorData = ({ buildingId, floorId }: UseFloorDataParams) => {
     canvasH,
     floorImageData,
     resolvedMapImageUrl,
-    routeDiagnosisQuery,
+    routeDiagnosis,
     isDiagnosisHighlighted,
     toggleDiagnosisHighlight,
     routeDiagnosisHighlight,

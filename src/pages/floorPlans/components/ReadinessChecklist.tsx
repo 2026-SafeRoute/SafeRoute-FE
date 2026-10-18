@@ -7,6 +7,7 @@ import type { ProgressStep } from '@components/progress/StepProgress';
 
 import * as styles from './ReadinessChecklist.css';
 import { EDITING_LOCK_HINT_ID } from '../constants/floorEditor';
+import { getLimitedExitStartNodeIds } from '../utils/routeDiagnosis';
 
 // 훈련 준비 — 시나리오를 재생하려면 이 층에 ①시작 노드(후보) ②최종 탈출구(계단) ③시작
 // 지점에서 최종 탈출구까지 이어지는 엣지 경로가 있어야 함. 이 셋이 노드추가 팝업 안 칩,
@@ -153,10 +154,7 @@ const ReadinessChecklist = ({
   }
 
   const unreachableNodeCount = routeDiagnosis?.unreachableNodeIds?.length ?? 0;
-  const limitedExitStartCount =
-    routeDiagnosis?.startCandidates?.filter(
-      ({ reachableExitCount }) => reachableExitCount !== undefined && reachableExitCount <= 1,
-    ).length ?? 0;
+  const limitedExitStartCount = getLimitedExitStartNodeIds(routeDiagnosis).length;
   const undesignatedStairCount = routeDiagnosis?.undesignatedStairNodeIds?.length ?? 0;
 
   return (
@@ -178,9 +176,13 @@ const ReadinessChecklist = ({
             <span className={styles.diagnosisBadge}>권장</span>
           </div>
 
+          {/* 미통과 원인(끊긴 노드·탈출구 1곳 이하 시작 후보)마다 실제로 있는 것만 안내 */}
           <p className={styles.diagnosisDescription}>
-            일부 시작 후보는 연결된 탈출구가 1곳뿐이에요. 훈련은 시작할 수 있지만, 해당 경로가
-            막히면 대체 경로를 찾을 수 없어요. 노드와 엣지 연결을 확인해 주세요.
+            {unreachableNodeCount > 0 &&
+              '어떤 탈출구와도 이어지지 않은 노드가 있어요. 가까운 노드와 엣지로 이어 주세요. '}
+            {limitedExitStartCount > 0 &&
+              '시작 후보에서 갈 수 있는 탈출구가 1곳뿐이면, 화재가 경로에 닿았을 때 재탐색할 길이 없어요. '}
+            훈련은 시작할 수 있어요.
           </p>
 
           <dl className={styles.diagnosisStats}>
