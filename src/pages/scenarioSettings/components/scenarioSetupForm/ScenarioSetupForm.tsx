@@ -11,6 +11,8 @@ import type { ScenarioFloorMapView } from '@pages/scenarioSettings/hooks/useScen
 import * as pageStyles from '@pages/scenarioSettings/ScenarioSettingsPage.css';
 import type { BasicInfo } from '@pages/scenarioSettings/types/scenarioSettings';
 
+import type { ScenarioRouteDiagnosisResponse } from '@apis/__generated__/data-contracts';
+
 import UsersIcon from '@assets/icons/ic-multi-user.svg?react';
 
 import { Button } from '@components/Button';
@@ -56,6 +58,7 @@ interface ScenarioSetupFormProps {
   mode: ScenarioSetupMode;
   handlers: ScenarioSetupHandlers;
   evacuationSetup: EvacuationSetupControl;
+  routeDiagnosis?: ScenarioRouteDiagnosisResponse;
 }
 
 const TRAINING_LOCK_MESSAGE = '🔒 잠금 · 훈련 중 수정 불가';
@@ -117,6 +120,7 @@ const ScenarioSetupForm = ({
   mode,
   handlers,
   evacuationSetup,
+  routeDiagnosis,
 }: ScenarioSetupFormProps) => {
   const { basicInfo, fireSpreadLabel } = value;
   const { isRunning, readOnly, buildingReadOnly } = mode;
@@ -264,6 +268,7 @@ const ScenarioSetupForm = ({
                 graph={floorMap.graph}
                 gridCells={floorMap.gridCells}
                 routePoints={floorMap.routePoints}
+                routeDiagnosis={isRunning ? undefined : routeDiagnosis}
                 fireCellIds={floorMap.fireCellIds}
                 originCellId={floorMap.originCellId}
                 selectedFireCellId={floorMap.selectedFireCellId}
