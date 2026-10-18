@@ -72,6 +72,7 @@ export const API_ENDPOINTS = {
     // 최초 발화점(fireOriginGridCellId) + 훈련 시작점(startNodeId)을 한 번에 조회/설정.
     // POST는 스웨거상 둘 다 필수 — 하나만 보낼 수 없음
     EVACUATION_SETUP: (scenarioId: string) => `${API_V1}/scenarios/${scenarioId}/evacuation-setup`,
+    ROUTE_DIAGNOSIS: (scenarioId: string) => `${API_V1}/scenarios/${scenarioId}/route-diagnosis`,
   },
 
   // 훈련 리포트
