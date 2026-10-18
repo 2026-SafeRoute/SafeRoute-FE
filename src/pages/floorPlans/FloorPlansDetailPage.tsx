@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import clsx from 'clsx';
 import { useNavigate, useParams } from 'react-router';
@@ -8,7 +8,6 @@ import { useNavigate, useParams } from 'react-router';
 import { useGetBuildingsQuery } from '@apis/buildings/useBuildingsQuery';
 import { extractApiError } from '@apis/errors/apiError';
 import {
-  floorGraphQueryOptions,
   floorQueryKeys,
   useBuildingFloorsQuery,
   useFloorCctvsQuery,
@@ -38,7 +37,6 @@ import { interactivePanelBreakpoints } from '@styles/responsive.css';
 
 import { formatFloor, hasFloorPlan } from '@utils/floor';
 import { CANVAS_W, getGridCellPxSize, getGridDimensions } from '@utils/floorCanvas';
-import { formatAreaM2 } from '@utils/format';
 
 import {
   configureCctvGridCells,
@@ -49,7 +47,7 @@ import {
   updateCctv,
 } from './api/cctvApi';
 import { getFloorGridCells, getFloorGridScale, setFloorGrid } from './api/floorGridApi';
-import { analyzeFloor, getFloorDetail, toFloor, uploadFloor } from './api/floorPlansApi';
+import { analyzeFloor, toFloor, uploadFloor } from './api/floorPlansApi';
 import {
   assignLightCctv,
   configureLightGuidance,
@@ -67,10 +65,6 @@ import {
   updateMapNodePosition,
   updateNodeStartCandidate,
 } from './api/mapGraphApi';
-import {
-  floorRouteDiagnosisQueryKey,
-  useFloorRouteDiagnosisQuery,
-} from './api/useFloorRouteDiagnosisQuery';
 import { createUserZone, deleteUserZone } from './api/userZoneApi';
 import AddActionMenu from './components/AddActionMenu';
 import DeviceCard from './components/DeviceCard';
@@ -89,10 +83,19 @@ import {
   ZONE_CARD_DOT_CLASS,
 } from './constants/structureNode';
 import * as styles from './FloorPlansDetailPage.css';
+import { useFloorAnalysisPolling } from './hooks/useFloorAnalysisPolling';
+import { useRouteDiagnosisHighlight } from './hooks/useRouteDiagnosisHighlight';
 import EquipmentDeleteConfirmModal from './modals/EquipmentDeleteConfirmModal';
 import FloorUploadModal from './modals/FloorUploadModal';
 import GridAreaSettingModal from './modals/GridAreaSettingModal';
 import { EMPTY_DEVICE_EDIT_FORM } from './types/panelItem';
+import { cellIdsIntersectingRect } from './utils/cellIdsIntersectingRect';
+import {
+  deviceTypeToFilterChip,
+  deviceTypeToPlaceType,
+  formatInstallLocation,
+  formatMonitoredZone,
+} from './utils/deviceDisplay';
 import {
   GRID_SIZE_KEY,
   PENDING_GRID_SIZE_KEY,
@@ -101,6 +104,7 @@ import {
   rememberPendingGridSize,
 } from './utils/gridStorage';
 import { hasExistingEdge } from './utils/hasExistingEdge';
+import { hasRouteToExit } from './utils/hasRouteToExit';
 
 import type { Cctv } from './api/cctvApi';
 import type { FloorGridCell } from './api/floorGridApi';
@@ -110,36 +114,8 @@ import type { LightAddFields } from './components/NodeAddPopup';
 import type { AddedDevice, PlacingDeviceType } from './constants/devicePlacement';
 import type { StructureNode } from './constants/structureNode';
 import type { SelectedItem, ZoneEntry, ZoneRect, ZoneRefSelection } from './types/canvasSelection';
-import type { DeviceType, Floor, FloorBuilding } from './types/floorPlans';
+import type { Floor, FloorBuilding } from './types/floorPlans';
 import type { DeviceEditForm, PanelItem } from './types/panelItem';
-
-// CCTV 등록·시야 재선택·수정 세 곳에서 카드에 보여줄 "모니터링 N칸 · M㎡" 문구를 각자 다시
-// 조립하면 한 줄이 100자를 넘기기 쉽고 표현도 어긋나기 쉬워 하나로 합침
-const formatMonitoredZone = (cctv: Pick<Cctv, 'monitoredGridCellCount' | 'monitoredAreaM2'>) =>
-  `모니터링 ${cctv.monitoredGridCellCount}칸 · ${formatAreaM2(cctv.monitoredAreaM2)}㎡`;
-
-// "설치 위치" 카드 행 — CCTV는 감시 영역에서 계산한 실제 값(zone)이 있지만, 유도등은 그런
-// 백엔드 필드가 없어(등록 팝업의 "설치 위치" 입력은 저장 API로 나가지 않음) 새로고침하면
-// 사라지고 고정 문구로 되돌아가던 값이었음 — 대신 이미 갖고 있는 실제 좌표를 보여줘서
-// 최소한 의미 있는 값이 뜨게 함
-const formatInstallLocation = (type: PanelItem['type'], x: number, y: number, zone: string) =>
-  type === 'cctv' ? zone : `X ${Math.round(x)}% · Y ${Math.round(y)}%`;
-
-// 도면 마커의 DeviceType('cctv'|'iot'|'fire')을 패널 필터 체계(PanelItem.type)로 변환.
-// 두 군데(패널 목록 만들 때, 지도 클릭으로 필터 이동할 때)에서 각각 다시 구현하면 인식 못하는
-// 값의 처리(fallback)가 서로 어긋날 수 있어 하나로 합침
-const deviceTypeToPlaceType = (type: DeviceType): PanelItem['type'] => {
-  if (type === 'cctv') return 'cctv';
-  if (type === 'iot') return 'light';
-  return 'general';
-};
-
-// deviceTypeFilter(하위 필터 칩)는 'general' 칩이 따로 없어서, 그 값은 필터 해제(null)로 흡수함 —
-// 위 매핑에서 파생시켜 fallback이 서로 다른 두 벌의 변환 로직으로 갈라지지 않게 함
-const deviceTypeToFilterChip = (type: DeviceType): 'cctv' | 'light' | null => {
-  const placeType = deviceTypeToPlaceType(type);
-  return placeType === 'general' ? null : placeType;
-};
 
 // 그리드(PUT /floors/{id}/grid, GET /floors/{id}/grid/cells)는 두 가지 용도로만 존재함:
 //  1) 사용자 구역(user-zone): 구역 = 그리드 셀 id의 집합(UserZoneCreateRequest.cellIds). 셀 단위로만 선택 가능
@@ -164,40 +140,9 @@ const EMPTY_CCTVS: Cctv[] = [];
 const EMPTY_LIGHTS: IoTLight[] = [];
 const EMPTY_GRID_CELLS: FloorGridCell[] = [];
 const EMPTY_USER_ZONES: UserZoneWithCells[] = [];
-const EMPTY_GRAPH: FloorGraph = { nodes: [], edges: [] };
 const EDITING_LOCK_HINT_ID = 'floor-editing-lock-notice';
-
-// AI 분석이 DONE으로 바뀐 직후엔 노드가 아직 생성 중일 수 있어 그래프가 비어 올 수 있음 — 재조회 설정
-const GRAPH_RETRY_LIMIT = 5;
-const GRAPH_RETRY_INTERVAL_MS = 2000;
-
-// DONE 전환 후에도 서버가 문/계단 노드를 순차 생성하는 동안(방만 먼저 오는 경우가 많음)
-// 그래프를 계속 다시 받아온다. 전환 시점부터 GRAPH_SETTLE_WINDOW_MS 동안, 노드 수가
-// GRAPH_SETTLE_STABLE_TICKS번 연속(=실제 재조회 기준) 같아지면 생성이 끝난 것으로 보고 멈춘다.
-const GRAPH_SETTLE_WINDOW_MS = 180_000;
-const GRAPH_SETTLE_POLL_MS = 3000;
-const GRAPH_SETTLE_STABLE_TICKS = 3;
-
-// 드래그 사각형(캔버스 좌표)과 영역이 조금이라도 겹치는 셀들의 id — 셀 중심이 아니라 셀 면적 기준.
-// 드래그 미리보기와 실제 잡히는 셀이 일치하도록 드래그 중/드래그 종료 양쪽에서 같은 로직을 씀
-const cellIdsIntersectingRect = (
-  cells: FloorGridCell[],
-  rect: { x: number; y: number; w: number; h: number },
-  size: { w: number; h: number },
-  canvasH: number,
-): string[] =>
-  cells
-    .filter((cell) => {
-      const left = cell.centerX * CANVAS_W - size.w / 2;
-      const top = cell.centerY * canvasH - size.h / 2;
-      return (
-        left < rect.x + rect.w &&
-        left + size.w > rect.x &&
-        top < rect.y + rect.h &&
-        top + size.h > rect.y
-      );
-    })
-    .map((cell) => cell.id);
+// 유도등 추가 팝업의 갈림길 위치·좌우 통로 초기값
+const EMPTY_LIGHT_GUIDANCE_FIELDS = { decisionNodeId: '', leftEdgeId: '', rightEdgeId: '' };
 
 /* ── 메인 페이지 ── */
 const FloorPlansDetailPage = () => {
@@ -234,34 +179,9 @@ const FloorPlansDetailPage = () => {
 
   const { data: floorGridCells = EMPTY_GRID_CELLS } = useFloorGridCellsQuery(floorId);
 
-  // 업로드 직후 백엔드가 mapImageKey를 아직 안 채워 보낼 수 있는데(한두 사이클), 예전엔 키가
-  // 비면 "분석 중"이 아니라고 보고 상세 폴링을 멈춰서 — 이후 상태가 DONE으로 바뀌어도, 실제
-  // 이미지 URL을 발급받게 해주는 mapImageKey가 채워져도 — 화면을 새로고침해야 반영되던 문제.
-  // 업로드→분석 요청을 우리가 방금 걸었으면 키가 잠깐 비어도 계속 폴링하도록 이 플래그를 본다.
-  const awaitingUploadAnalysisRef = useRef(false);
-
-  // 현재 층 상세 — 세그멘테이션이 끝날 때까지(isAnalyzing) 짧은 간격으로 다시 조회해 상태 전환을
-  // 감지해야 해서, 폴링 여부를 방금 받은 데이터 기준으로 매번 다시 판단하는 refetchInterval에 맡김
-  const floorDetailQuery = useQuery({
-    queryKey: floorQueryKeys.detail(buildingId, floorId),
-    queryFn: ({ signal }) => {
-      if (!buildingId || !floorId) throw new Error('층 상세 조회 조건이 필요합니다.');
-      return getFloorDetail(buildingId, floorId, signal);
-    },
-    enabled: Boolean(buildingId && floorId),
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (!data) return false;
-      const settled = data.segmentationStatus === 'DONE' || data.segmentationStatus === 'FAILED';
-      const analyzing =
-        !settled &&
-        (data.segmentationStatus === 'PROCESSING' ||
-          Boolean(data.mapImageUrl) ||
-          awaitingUploadAnalysisRef.current);
-      return analyzing ? 4000 : false;
-    },
-  });
-  const floor = floorDetailQuery.data ?? null;
+  // 층 상세·맵그래프 — AI 분석이 끝날 때까지 폴링
+  const { floorDetailQuery, floor, isFloorReady, graphData, markAwaitingUploadAnalysis } =
+    useFloorAnalysisPolling(buildingId, floorId);
 
   // 도면 이미지의 원본 가로/세로 비율 — viewBox 높이(canvasH)를 여기에 맞춰 이미지 왜곡을 없앰
   const [imageAspect, setImageAspect] = useState<number | null>(null);
@@ -281,8 +201,6 @@ const FloorPlansDetailPage = () => {
     if (imageAspect && imageAspect > 0) return CANVAS_W / imageAspect;
     return DEFAULT_CANVAS_H;
   }, [imageAspect, floorGridCells]);
-
-  const isFloorReady = floor?.segmentationStatus === 'DONE';
 
   // CCTV 등록 시 그리드 배율이 서버에서 사라져있어(CCTV006) 재적용 후 재시도할 때, 방금 사용자가
   // 드래그한 영역을 다시 그리게 하지 않고 같은 영역으로 셀을 재계산하기 위해 rect를 별도로 들고
@@ -408,99 +326,17 @@ const FloorPlansDetailPage = () => {
     };
   }, [floorId, isFloorReady, show, queryClient]);
 
-  // 세그멘테이션이 방금 끝났을 때(PENDING/PROCESSING → DONE) 서버가 노드를 순차 생성 중이라
-  // 그래프가 비었거나 방(ROOM)만 오고 문/계단은 아직 없는 상태로 올 수 있음. 그 전환 시점부터
-  // GRAPH_SETTLE_WINDOW_MS 동안 아래 graphQuery.refetchInterval이 그래프를 계속 다시 받아온다.
-  // 이미 DONE인 층을 그냥 열 때(undefined → DONE)는 창을 안 열어 불필요한 폴링을 막고,
-  // 재업로드로 DONE이 잠깐 풀렸다가(PENDING) 다시 붙으면 창을 새로 연다.
-  const graphSettleUntilRef = useRef<number>(0);
-  const graphNodeStreakRef = useRef<{ count: number; streak: number; updateCount: number }>({
-    count: -1,
-    streak: 0,
-    updateCount: -1,
-  });
-  const prevSegStatusRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    const prev = prevSegStatusRef.current;
-    const curr = floor?.segmentationStatus;
-    prevSegStatusRef.current = curr;
-    if (curr === 'DONE' || curr === 'FAILED') awaitingUploadAnalysisRef.current = false;
-    const justFinished = (prev === 'PENDING' || prev === 'PROCESSING') && curr === 'DONE';
-    if (justFinished) {
-      graphSettleUntilRef.current = Date.now() + GRAPH_SETTLE_WINDOW_MS;
-      graphNodeStreakRef.current = { count: -1, streak: 0, updateCount: -1 };
-      // 분석이 끝나면 이 층에 걸린 모든 조회(이미지 URL·그래프·그리드·CCTV·유도등·구역·목록)를
-      // 한 번에 무효화한다. 캐시마다 갱신 트리거(폴링/enabled 전환/staleTime)가 제각각이라
-      // 업로드마다 어떤 건 뜨고 어떤 건 새로고침해야 뜨는 문제가 반복됐음 — 완료 시점에
-      // 서버는 이미 일관된 상태이므로, 통째로 다시 받아오는 게 가장 확실하다.
-      void queryClient.invalidateQueries({ queryKey: floorQueryKeys.all });
-    } else if (curr && curr !== 'DONE') {
-      graphSettleUntilRef.current = 0;
-      graphNodeStreakRef.current = { count: -1, streak: 0, updateCount: -1 };
-    }
-  }, [floor?.segmentationStatus, queryClient]);
-
-  // 맵그래프(노드/엣지) 조회. 노드가 아예 안 온 상태면 GRAPH_RETRY_LIMIT회까지 빠르게 재시도하고,
-  // 노드가 오기 시작했으면 위 settle 창이 살아있는 동안 노드 수가 GRAPH_SETTLE_STABLE_TICKS번
-  // 연속(실제 재조회 기준 — dataUpdateCount로 셈) 같아질 때까지 GRAPH_SETTLE_POLL_MS 간격으로 폴링.
-  const graphQuery = useQuery({
-    ...floorGraphQueryOptions(floorId),
-    enabled: Boolean(floorId) && isFloorReady,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (!data) return false;
-      if (data.nodes.length === 0) {
-        return query.state.dataUpdateCount <= GRAPH_RETRY_LIMIT ? GRAPH_RETRY_INTERVAL_MS : false;
-      }
-      if (Date.now() >= graphSettleUntilRef.current) return false;
-      const s = graphNodeStreakRef.current;
-      if (query.state.dataUpdateCount !== s.updateCount) {
-        s.updateCount = query.state.dataUpdateCount;
-        if (data.nodes.length === s.count) s.streak += 1;
-        else {
-          s.count = data.nodes.length;
-          s.streak = 1;
-        }
-      }
-      return s.streak >= GRAPH_SETTLE_STABLE_TICKS ? false : GRAPH_SETTLE_POLL_MS;
-    },
-  });
-  const graphData = graphQuery.data ?? EMPTY_GRAPH;
-
-  // 현재 층 대체 경로 진단 결과
-  const routeDiagnosisQuery = useFloorRouteDiagnosisQuery(floorId, isFloorReady);
-  // 도면 진단 강조 표시 여부
-  const [isDiagnosisHighlighted, setIsDiagnosisHighlighted] = useState(false);
-
-  // 층 전환·진단 완료 시 강조 상태 초기화
-  useEffect(() => {
-    setIsDiagnosisHighlighted(false);
-  }, [floorId, routeDiagnosisQuery.data?.ready]);
-
-  // 캔버스 진단 강조 대상
-  const routeDiagnosisHighlight = useMemo(() => {
-    const diagnosis = routeDiagnosisQuery.data;
-    if (!isDiagnosisHighlighted || diagnosis?.ready !== false) return undefined;
-    return {
-      unreachableNodeIds: diagnosis.unreachableNodeIds ?? [],
-      limitedExitStartNodeIds:
-        diagnosis.startCandidates
-          ?.filter(
-            ({ nodeId, reachableExitCount }) =>
-              Boolean(nodeId) && reachableExitCount !== undefined && reachableExitCount <= 1,
-          )
-          .map(({ nodeId }) => nodeId as string) ?? [],
-      undesignatedStairNodeIds: diagnosis.undesignatedStairNodeIds ?? [],
-    };
-  }, [isDiagnosisHighlighted, routeDiagnosisQuery.data]);
-
-  // 그래프 변경 후 진단 갱신
-  const invalidateFloorRouteDiagnosis = () =>
-    queryClient.invalidateQueries({ queryKey: floorRouteDiagnosisQueryKey(floorId) });
+  const {
+    routeDiagnosisQuery,
+    isDiagnosisHighlighted,
+    toggleDiagnosisHighlight,
+    routeDiagnosisHighlight,
+    invalidateFloorRouteDiagnosis,
+  } = useRouteDiagnosisHighlight(floorId, isFloorReady);
 
   const updateGraphCache = (updater: (prev: FloorGraph) => FloorGraph) => {
     queryClient.setQueryData<FloorGraph>(floorQueryKeys.graph(floorId), (prev) =>
-      updater(prev ?? EMPTY_GRAPH),
+      updater(prev ?? { nodes: [], edges: [] }),
     );
   };
 
@@ -630,7 +466,7 @@ const FloorPlansDetailPage = () => {
   };
   // 구역 드래그(사각형 선택) 중엔 캔버스 위 CCTV·유도등 마커(SVG 밖 별도 HTML 마커)와
   // 격자 셀·구조 노드가 저마다 다른 커서를 걸고 있어도 항상 십자선(crosshair)으로 보이게 함 —
-  // MockFloorMap3F(SVG 내부)에서 드래그 시작/종료 시 이 값을 갱신하고, FloorCanvas가 SVG 밖
+  // FloorCanvasSvg(SVG 내부)에서 드래그 시작/종료 시 이 값을 갱신하고, FloorCanvas가 SVG 밖
   // 마커의 pointer-events를 같이 꺼서 호버가 아래 SVG 배경(crosshair)으로 그대로 넘어가게 함
   const [isZoneDragging, setIsZoneDragging] = useState(false);
   const [topFilter, setTopFilter] = useState<'all' | 'device' | 'zone'>('all');
@@ -644,11 +480,7 @@ const FloorPlansDetailPage = () => {
   // 유도등 추가 팝업의 갈림길 위치·좌우 통로 값 — 드롭다운뿐 아니라 캔버스 클릭으로도 채울 수
   // 있어야 해서(도면에서 직접 고르는 대안) 팝업 로컬 state가 아니라 여기서 관리함. 담당 CCTV는
   // 캔버스에서 고를 대상이 아니라 계속 팝업 로컬 state(lightCctvId)로 남아있음
-  const [nodeAddLightFields, setNodeAddLightFields] = useState({
-    decisionNodeId: '',
-    leftEdgeId: '',
-    rightEdgeId: '',
-  });
+  const [nodeAddLightFields, setNodeAddLightFields] = useState(EMPTY_LIGHT_GUIDANCE_FIELDS);
   // 지금 "캔버스에서 선택" 모드가 걸려있는 대상 — 추가 팝업/수정 카드 중 어느 쪽의 어느
   // 필드인지 알아야 캔버스 클릭 결과를 올바른 곳에 반영할 수 있음
   const [lightPickTarget, setLightPickTarget] = useState<{
@@ -695,6 +527,16 @@ const FloorPlansDetailPage = () => {
   // 벗어나면(완료든 취소든) 렌더링 쪽에서 이 오버레이를 무시하고 원래 좌표로 되돌아감
   const handleDeviceMoved = (id: string, x: number, y: number) => {
     setDevicePositions((prev) => ({ ...prev, [id]: { x, y } }));
+  };
+
+  // 수정 세션이 끝나거나 새로 시작할 때 스테이징해둔 드래그 좌표를 버림
+  const clearDevicePosition = (id: string) => {
+    setDevicePositions((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   // realCctvs는 useFloorCctvsQuery 캐시라, 서버 응답으로 갱신하려면 로컬 setState가 아니라
@@ -942,9 +784,8 @@ const FloorPlansDetailPage = () => {
         void queryClient.invalidateQueries({
           queryKey: floorQueryKeys.list(selectedBuildingId),
         });
-        // 방금 업로드→분석을 걸었으니, mapImageKey가 한두 사이클 비어 와도 상세 폴링이
-        // 끊기지 않게 한다(refetchInterval이 이 플래그를 봄). DONE/FAILED에서 해제됨.
-        awaitingUploadAnalysisRef.current = true;
+        // 방금 업로드→분석을 걸었으니, mapImageKey가 한두 사이클 비어 와도 상세 폴링이 끊기지 않게 함
+        markAwaitingUploadAnalysis();
         // 이미지가 바로 보이도록 상세 캐시에 새 도면을 먼저 반영하고,
         // 곧바로 무효화해 재조회를 태운다 — setQueryData만으로는 segmentationStatus 폴링
         // (floorDetailQuery의 refetchInterval)이 다시 시작되지 않아, 분석이 끝나도(DONE)
@@ -1094,7 +935,7 @@ const FloorPlansDetailPage = () => {
     setNodeStagedPosition(null);
     setZoneDraftRect(null);
     setNodeAddOpen(false);
-    setNodeAddLightFields({ decisionNodeId: '', leftEdgeId: '', rightEdgeId: '' });
+    setNodeAddLightFields(EMPTY_LIGHT_GUIDANCE_FIELDS);
   };
 
   // 그리드가 필요한 두 진입점(CCTV 등록, 그리드 표시 토글)이 공유하는 확인 로직 —
@@ -1193,7 +1034,7 @@ const FloorPlansDetailPage = () => {
   const handleCancelNodeAdd = () => {
     setNodeAddOpen(false);
     lastCctvDraftRectRef.current = null;
-    setNodeAddLightFields({ decisionNodeId: '', leftEdgeId: '', rightEdgeId: '' });
+    setNodeAddLightFields(EMPTY_LIGHT_GUIDANCE_FIELDS);
     setLightPickTarget((prev) => (prev?.source === 'add' ? null : prev));
   };
 
@@ -1941,42 +1782,11 @@ const FloorPlansDetailPage = () => {
     nodeAddOpen,
   ]);
 
-  // 시작 후보 중 하나라도 엣지를 따라 최종 탈출구까지 이어지는지 (훈련 준비 체크리스트용).
-  // 이 경로가 없으면 경로 탐색기가 EVAC005("도달 가능한 EXIT 노드가 없습니다")로 실패함 —
-  // 시작 노드가 그래프에 아예 연결 안 돼 있어도 여기서 걸림. graphEdges + structureNodes로 BFS.
-  const hasRouteFromStartToExit = useMemo(() => {
-    // 시작점 후보 = 예전 방식의 START 노드 + 문·출입구 중 시작 후보로 지정된 것
-    const startNodes = structureNodes.filter((n) => n.type === 'start' || n.isStartCandidate);
-    const exitIds = new Set(structureNodes.filter((n) => n.isFinalExit).map((n) => n.id));
-    if (startNodes.length === 0 || exitIds.size === 0) return false;
-
-    const adjacency = new Map<string, string[]>();
-    const link = (from: string, to: string) => {
-      const list = adjacency.get(from);
-      if (list) list.push(to);
-      else adjacency.set(from, [to]);
-    };
-    for (const edge of graphEdges) {
-      link(edge.fromNodeId, edge.toNodeId);
-      if (edge.bidirectional) link(edge.toNodeId, edge.fromNodeId);
-    }
-
-    return startNodes.some((start) => {
-      const visited = new Set([start.id]);
-      const queue = [start.id];
-      while (queue.length > 0) {
-        const current = queue.shift() as string;
-        if (exitIds.has(current)) return true;
-        for (const next of adjacency.get(current) ?? []) {
-          if (!visited.has(next)) {
-            visited.add(next);
-            queue.push(next);
-          }
-        }
-      }
-      return false;
-    });
-  }, [structureNodes, graphEdges]);
+  // 시작 후보에서 최종 탈출구까지 엣지 경로 존재 여부 (훈련 준비 체크리스트용)
+  const hasRouteFromStartToExit = useMemo(
+    () => hasRouteToExit(structureNodes, graphEdges),
+    [structureNodes, graphEdges],
+  );
 
   // 다른 삭제(장비/POI)는 전부 확인 모달을 거치는데 구역만 클릭 즉시 삭제되고 있어서 맞춤
   const handleZoneDeleteRequest = (zone: ZoneEntry) => setZoneDeleteTarget(zone);
@@ -2337,7 +2147,7 @@ const FloorPlansDetailPage = () => {
     );
   };
 
-  // MockFloorMap3F가 픽 모드에서 유효한(연결된) 노드·엣지만 클릭 가능하게 걸러주므로, 여기서는
+  // FloorCanvasSvg가 픽 모드에서 유효한(연결된) 노드·엣지만 클릭 가능하게 걸러주므로, 여기서는
   // 넘어온 id를 그대로 해당 대상의 값으로 반영하면 됨
   const handleLightCanvasPick = (id: string) => {
     if (!lightPickTarget) return;
@@ -2436,12 +2246,7 @@ const FloorPlansDetailPage = () => {
     // 이전에 드래그했다가 완료를 안 누르고 나간 세션의 스테이징 값이 남아있으면 이번에
     // 새로 안 옮겨도 그 값이 그대로 보여서 위치가 잘못 표시될 수 있음 — 새 수정 세션은
     // 항상 실제 저장된 좌표에서 다시 시작하게 정리함
-    setDevicePositions((prev) => {
-      if (!(item.id in prev)) return prev;
-      const next = { ...prev };
-      delete next[item.id];
-      return next;
-    });
+    clearDevicePosition(item.id);
     setEditingItemId(item.id);
   };
 
@@ -2530,12 +2335,7 @@ const FloorPlansDetailPage = () => {
     setEditingItemId(null);
     // 스테이징된 드래그 좌표는 이미 addedDevices에 커밋했으니 정리 — 다음 수정 세션은
     // handleStartEdit이 다시 깨끗한 상태로 시작함
-    setDevicePositions((prev) => {
-      if (!(item.id in prev)) return prev;
-      const next = { ...prev };
-      delete next[item.id];
-      return next;
-    });
+    clearDevicePosition(item.id);
   };
 
   // "취소" — 이름·가이던스 등 입력한 값은 그냥 버림. 위치도 저장 안 하고 나가면 렌더링
@@ -2544,12 +2344,7 @@ const FloorPlansDetailPage = () => {
   const handleCancelEdit = (item: PanelItem) => {
     if (editingCctvId === item.id) handleCancelEditCctvCells();
     setEditingItemId(null);
-    setDevicePositions((prev) => {
-      if (!(item.id in prev)) return prev;
-      const next = { ...prev };
-      delete next[item.id];
-      return next;
-    });
+    clearDevicePosition(item.id);
   };
 
   const handlePanelItemDelete = (item: PanelItem) => {
@@ -2715,7 +2510,7 @@ const FloorPlansDetailPage = () => {
                   setDeviceTypeFilter([]);
                 }}
                 onConnectEdges={handleOpenEdgeAdd}
-                onToggleDiagnosisHighlight={() => setIsDiagnosisHighlighted((current) => !current)}
+                onToggleDiagnosisHighlight={toggleDiagnosisHighlight}
               />
             )}
 
