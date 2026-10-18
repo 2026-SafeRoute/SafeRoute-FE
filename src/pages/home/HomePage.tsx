@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import { useGetBuildingsQuery } from '@apis/buildings/useBuildingsQuery';
 import { extractApiError } from '@apis/errors/apiError';
+import { setScenarioInProgressCache } from '@apis/scenarios/scenarioCache';
 import { SCENARIO_STATUS } from '@apis/scenarios/scenarioTypes';
 import { useGetScenariosQuery } from '@apis/scenarios/useScenariosQuery';
 import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
@@ -112,6 +113,13 @@ const HomePage = () => {
       }
 
       await startTrainingSessionMutation.mutateAsync(training.id);
+      if (selectedSession?.scenarioId) {
+        setScenarioInProgressCache(
+          queryClient,
+          selectedSession.scenarioId,
+          scenarios.find((scenario) => scenario.id === selectedSession.scenarioId),
+        );
+      }
       show({ title: '훈련이 시작되었습니다.', variant: 'success' });
     } catch (error) {
       const serverMessage = extractApiError(error).message;

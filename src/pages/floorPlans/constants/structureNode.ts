@@ -1,5 +1,5 @@
-import * as styles from '../FloorPlansDetailPage.css';
 import { DEVICE_COLOR } from './deviceColors';
+import * as styles from '../components/panel/panelCard.css';
 
 import type { MapNodeType } from '../api/mapGraphApi';
 

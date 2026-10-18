@@ -10,6 +10,7 @@ import { useSessionContextQuery } from '@pages/trainingAnalysis/api/useSessionCo
 import type { TrainingSessionContext } from '@pages/trainingAnalysis/types/trainingAnalysis';
 
 import type { TrainingSessionSummaryResponse } from '@apis/__generated__/data-contracts';
+import { fireZoneQueryOptions } from '@apis/scenarios/fireZoneQueries';
 import { scenarioQueryKeys } from '@apis/scenarios/scenarioQueryKeys';
 import {
   SESSION_DISCOVERY_POLL_INTERVAL_MS,
@@ -30,6 +31,8 @@ import useToast from '@components/toast/useToast';
 import { getScenarioDetailPath, ROUTES } from '@constants/path';
 
 import { formatDuration } from '@utils/format';
+
+import { useRouteRecalculationNotifications } from '../hooks/useRouteRecalculationNotifications';
 
 interface SessionNotificationProps {
   session: TrainingSessionSummaryResponse;
@@ -52,13 +55,16 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
     context?.status === TRAINING_SESSION_STATUS.STOPPED ||
     context?.status === TRAINING_SESSION_STATUS.CANCELLED;
   const completed = context?.status === TRAINING_SESSION_STATUS.COMPLETED;
-  const lastRouteEvent = useRef<string>();
   const lastRouteBlockedEvent = useRef<string>();
   const isScenarioPage = Boolean(
     session.scenarioId && pathname === getScenarioDetailPath(session.scenarioId),
   );
   const isTrainingAnalysisPage =
     pathname === ROUTES.TRAINING_ANALYSIS || pathname.startsWith(`${ROUTES.TRAINING_ANALYSIS}/`);
+  const handleRouteRecalculationEvent = useRouteRecalculationNotifications({
+    session,
+    isScenarioPage,
+  });
 
   const showRouteBlockedWarning = useCallback(
     ({
@@ -115,20 +121,15 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
         showRouteBlockedWarning(blockedEvent.data);
         return;
       }
-      if (event.eventType !== TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_REQUESTED) return;
-      if (lastRouteEvent.current === event.occurredAt) return;
-      lastRouteEvent.current = event.occurredAt;
-      if (isScenarioPage) return;
-      show({
-        title: '대피 경로 재탐색 요청이 도착했습니다.',
-        description: `${session.scenarioName ?? '진행 중인 훈련'}의 시나리오 화면에서 경로 변경 제안을 확인해 주세요.`,
-        variant: 'warning',
-        duration: 0,
-        actionLabel: '시나리오로 이동',
-        onAction: () => {
-          if (session.scenarioId) void navigate(getScenarioDetailPath(session.scenarioId));
-        },
-      });
+      // 시나리오 화면은 자체 소켓에서 갱신하므로, 다른 화면에 있을 때만 화재구역을 미리 받아 둔다.
+      if (
+        event.eventType === TRAINING_EVENT_TYPE.FIRE_SPREAD_UPDATED &&
+        session.scenarioId &&
+        !isScenarioPage
+      ) {
+        void queryClient.prefetchQuery(fireZoneQueryOptions(session.scenarioId));
+      }
+      handleRouteRecalculationEvent(event);
     },
   });
 

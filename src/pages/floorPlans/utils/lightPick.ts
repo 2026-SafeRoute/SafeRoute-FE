@@ -1,5 +1,11 @@
 export type LightPickFieldName = 'decisionNode' | 'leftEdge' | 'rightEdge';
 
+// "캔버스에서 선택" 모드가 걸린 대상 — 추가 팝업/수정 카드 중 어느 쪽의 어느 필드인지
+export interface LightPickTarget {
+  source: 'add' | 'edit';
+  field: LightPickFieldName;
+}
+
 interface LightPickHint {
   text: string;
   isWarning: boolean;

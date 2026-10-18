@@ -69,8 +69,14 @@ export const container = recipe({
         animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
+    wide: {
+      true: {
+        maxWidth: 'min(64rem, calc(100vw - 4.8rem))',
+      },
+      false: {},
+    },
   },
-  defaultVariants: { variant: 'default', leaving: false },
+  defaultVariants: { variant: 'default', leaving: false, wide: false },
 });
 
 export const iconWrapper = recipe({
@@ -132,8 +138,13 @@ export const description = recipe({
       warning: { color: vars.color.warningText },
       error: { color: vars.color.dangerText },
     },
+    noWrap: {
+      // 긴 시나리오명 등으로 최대 너비를 넘으면 말줄임으로 자름
+      true: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      false: {},
+    },
   },
-  defaultVariants: { variant: 'default' },
+  defaultVariants: { variant: 'default', noWrap: false },
 });
 
 export const actionButton = recipe({

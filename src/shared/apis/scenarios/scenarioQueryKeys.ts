@@ -5,4 +5,7 @@ export const scenarioQueryKeys = {
   list: () => [...scenarioQueryKeys.lists()] as const,
   details: () => [...scenarioQueryKeys.all, 'detail'] as const,
   detail: (scenarioId: string) => [...scenarioQueryKeys.details(), scenarioId] as const,
+  routeDiagnoses: () => [...scenarioQueryKeys.all, 'route-diagnosis'] as const,
+  routeDiagnosis: (scenarioId?: string) =>
+    [...scenarioQueryKeys.routeDiagnoses(), scenarioId] as const,
 };

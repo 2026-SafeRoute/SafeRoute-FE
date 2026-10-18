@@ -13,6 +13,7 @@ export interface PreviewMetric {
   id: string;
   label: string;
   value: string;
+  tone?: 'default' | 'danger';
 }
 
 export interface PreviewStatus {

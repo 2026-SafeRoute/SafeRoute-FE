@@ -5,11 +5,11 @@ import clsx from 'clsx';
 import CameraIcon from '@assets/icons/ic-camera.svg?react';
 import WifiIcon from '@assets/icons/ic-wifi.svg?react';
 
-import { DEVICE_PLACE_CONFIG } from '../constants/devicePlacement';
-import * as styles from '../FloorPlansDetailPage.css';
-import { rafThrottle } from '../utils/rafThrottle';
+import * as styles from './canvas.css';
+import { DEVICE_PLACE_CONFIG } from '../../constants/devicePlacement';
+import { rafThrottle } from '../../utils/rafThrottle';
 
-import type { AddedDevice } from '../constants/devicePlacement';
+import type { AddedDevice } from '../../constants/devicePlacement';
 
 interface AddedDevicePinProps {
   device: AddedDevice;
