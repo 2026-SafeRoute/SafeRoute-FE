@@ -10,6 +10,7 @@ import { useSessionContextQuery } from '@pages/trainingAnalysis/api/useSessionCo
 import type { TrainingSessionContext } from '@pages/trainingAnalysis/types/trainingAnalysis';
 
 import type { TrainingSessionSummaryResponse } from '@apis/__generated__/data-contracts';
+import { fireZoneQueryOptions } from '@apis/scenarios/fireZoneQueries';
 import { scenarioQueryKeys } from '@apis/scenarios/scenarioQueryKeys';
 import {
   SESSION_DISCOVERY_POLL_INTERVAL_MS,
@@ -119,6 +120,14 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
         const blockedEvent = event as TrainingSessionEvent<EvacuationRouteBlockedEventData>;
         showRouteBlockedWarning(blockedEvent.data);
         return;
+      }
+      // 시나리오 화면은 자체 소켓에서 갱신하므로, 다른 화면에 있을 때만 화재구역을 미리 받아 둔다.
+      if (
+        event.eventType === TRAINING_EVENT_TYPE.FIRE_SPREAD_UPDATED &&
+        session.scenarioId &&
+        !isScenarioPage
+      ) {
+        void queryClient.prefetchQuery(fireZoneQueryOptions(session.scenarioId));
       }
       handleRouteRecalculationEvent(event);
     },
