@@ -26,6 +26,7 @@ interface ScenarioStartState {
   diagnosisMetrics: PreviewMetric[];
   previewDescription?: string;
   warningMessage?: string;
+  floorPlanPath?: string;
 }
 
 interface ScenarioActionHandlers {
@@ -33,7 +34,6 @@ interface ScenarioActionHandlers {
   onComplete: () => void;
   onStart: () => void;
   onEdit: () => void;
-  onOpenFloorPlan: () => void;
 }
 
 interface ScenarioActionPanelProps {
@@ -121,7 +121,7 @@ const ScenarioActionPanel = ({
               ? {
                   message: startState.warningMessage,
                   linkLabel: '도면 관리로 이동',
-                  onLinkClick: handlers.onOpenFloorPlan,
+                  linkTo: startState.floorPlanPath,
                 }
               : undefined
           }

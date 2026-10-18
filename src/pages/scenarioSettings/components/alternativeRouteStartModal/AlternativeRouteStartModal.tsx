@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 import AlertIcon from '@assets/icons/ic-alert.svg?react';
 
 import { Button } from '@components/Button';
@@ -10,7 +12,7 @@ interface AlternativeRouteStartModalProps {
   isStarting: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  onOpenFloorPlan: () => void;
+  floorPlanPath?: string;
 }
 
 const AlternativeRouteStartModal = ({
@@ -18,7 +20,7 @@ const AlternativeRouteStartModal = ({
   isStarting,
   onClose,
   onConfirm,
-  onOpenFloorPlan,
+  floorPlanPath,
 }: AlternativeRouteStartModalProps) => (
   <Modal
     open={open}
@@ -52,9 +54,11 @@ const AlternativeRouteStartModal = ({
             대체 경로 없이 시작
           </Button>
         </div>
-        <button type="button" className={styles.floorPlanLink} onClick={onOpenFloorPlan}>
-          도면 관리에서 끊긴 노드 연결하기 ›
-        </button>
+        {floorPlanPath && (
+          <Link className={styles.floorPlanLink} to={floorPlanPath}>
+            도면 관리에서 끊긴 노드 연결하기 ›
+          </Link>
+        )}
       </div>
     }
   />

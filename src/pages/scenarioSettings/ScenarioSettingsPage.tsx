@@ -156,6 +156,11 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
   // 대체 경로 부재 여부
   const hasNoAlternativeRoute = routeDiagnosis?.hasAlternativeRoute === false;
   const diagnosisMetrics = routeDiagnosis ? getRouteDiagnosisMetrics(routeDiagnosis) : [];
+  const diagnosisFloorId = routeDiagnosis?.floorId ?? floorView.selectedFloorId;
+  const floorPlanPath =
+    scenario?.buildingId && diagnosisFloorId
+      ? getFloorPlanDetailPath(scenario.buildingId, diagnosisFloorId)
+      : undefined;
   const startRestrictionMessage = getStartRestrictionMessage({
     scenario,
     isSetupPending: floorView.isSetupPending,
@@ -269,13 +274,6 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
       return;
     }
     void handleStartTraining();
-  };
-
-  const handleOpenFloorPlan = () => {
-    const floorId = routeDiagnosis?.floorId ?? floorView.selectedFloorId;
-    const buildingId = scenario?.buildingId;
-    if (!buildingId || !floorId) return;
-    void navigate(getFloorPlanDetailPath(buildingId, floorId));
   };
 
   const routedTimedOutSessionId =
@@ -447,9 +445,7 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
           <ScenarioActionPanel
             mode={actionMode}
             isSavingDraft={createDraftMutation.isPending || updateScenarioMutation.isPending}
-            isCompleting={
-              isCompleting || (actionMode === 'start' && routeDiagnosisQuery.isFetching)
-            }
+            isCompleting={isCompleting || (actionMode === 'start' && routeDiagnosisQuery.isLoading)}
             showDraftSave={isCreatePage || isDraft}
             completeLabel={isScenarioReady ? '변경 저장' : '다음'}
             startState={{
@@ -471,13 +467,13 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
               warningMessage: hasNoAlternativeRoute
                 ? '화재가 안내 경로에 닿으면 돌아갈 길이 없어요. 시작 전에 도면의 엣지와 탈출구를 확인해 주세요.'
                 : undefined,
+              floorPlanPath,
             }}
             handlers={{
               onSaveDraft: () => void handleSaveDraft(),
               onComplete: () => void handleComplete(),
               onStart: handleStartRequest,
               onEdit: () => setIsEditing(true),
-              onOpenFloorPlan: handleOpenFloorPlan,
             }}
           />
         )}
@@ -514,7 +510,7 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
           setIsAlternativeRouteModalOpen(false);
           void handleStartTraining();
         }}
-        onOpenFloorPlan={handleOpenFloorPlan}
+        floorPlanPath={floorPlanPath}
       />
     </div>
   );

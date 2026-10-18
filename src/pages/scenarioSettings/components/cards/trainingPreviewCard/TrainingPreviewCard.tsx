@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 import { sideCardTitle } from '@pages/scenarioSettings/ScenarioSettingsPage.css';
 import type { PreviewMetric, PreviewStatus } from '@pages/scenarioSettings/types/scenarioSettings';
 
@@ -13,8 +15,8 @@ interface TrainingPreviewCardProps {
   description?: string;
   warning?: {
     message: string;
-    linkLabel: string;
-    onLinkClick: () => void;
+    linkLabel?: string;
+    linkTo?: string;
   };
 }
 
@@ -57,9 +59,11 @@ const TrainingPreviewCard = ({
     {warning && (
       <div className={styles.warningBox}>
         <p>{warning.message}</p>
-        <button type="button" className={styles.warningLink} onClick={warning.onLinkClick}>
-          {warning.linkLabel} ›
-        </button>
+        {warning.linkLabel && warning.linkTo && (
+          <Link className={styles.warningLink} to={warning.linkTo}>
+            {warning.linkLabel} ›
+          </Link>
+        )}
       </div>
     )}
 
