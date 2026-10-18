@@ -69,8 +69,14 @@ export const container = recipe({
         animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
+    wide: {
+      true: {
+        maxWidth: 'min(56rem, calc(100vw - 4.8rem))',
+      },
+      false: {},
+    },
   },
-  defaultVariants: { variant: 'default', leaving: false },
+  defaultVariants: { variant: 'default', leaving: false, wide: false },
 });
 
 export const iconWrapper = recipe({
@@ -132,8 +138,12 @@ export const description = recipe({
       warning: { color: vars.color.warningText },
       error: { color: vars.color.dangerText },
     },
+    noWrap: {
+      true: { whiteSpace: 'nowrap' },
+      false: {},
+    },
   },
-  defaultVariants: { variant: 'default' },
+  defaultVariants: { variant: 'default', noWrap: false },
 });
 
 export const actionButton = recipe({

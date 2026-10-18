@@ -89,3 +89,21 @@ export const ReferenceSet: Story = {
     );
   },
 };
+
+export const ExpiredRouteProposal: Story = {
+  args: {
+    id: 'expired-route-proposal',
+    title: '경로 변경 제안이 만료되었어요.',
+    description: '혼잡 상황이 바뀌어 이 제안은 더 이상 유효하지 않아요.',
+    variant: 'default',
+    icon: 'info',
+    descriptionNoWrap: true,
+    duration: 0,
+    onClose: () => {},
+  },
+  render: (args) => (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2rem' }}>
+      <Toast {...args} />
+    </div>
+  ),
+};

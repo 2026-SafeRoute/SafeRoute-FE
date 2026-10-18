@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 
-import type { ToastVariant } from './Toast';
+import type { ToastIcon, ToastVariant } from './Toast';
 
 export interface ShowToastOptions {
   title: string;
@@ -9,10 +9,13 @@ export interface ShowToastOptions {
   duration?: number;
   actionLabel?: string;
   onAction?: () => void;
+  icon?: ToastIcon;
+  descriptionNoWrap?: boolean;
 }
 
 export interface ToastContextValue {
   show: (options: ShowToastOptions) => string;
+  update: (id: string, options: ShowToastOptions) => boolean;
   dismiss: (id: string) => void;
 }
 

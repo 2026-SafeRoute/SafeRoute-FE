@@ -8,6 +8,10 @@ import type { ToastProps } from './Toast';
 import type { ShowToastOptions } from './useToast';
 
 type ToastItem = Omit<ToastProps, 'onClose' | 'leaving'>;
+type NormalizedToastOptions = Omit<ToastItem, 'id' | 'variant' | 'duration'> & {
+  variant: NonNullable<ToastItem['variant']>;
+  duration: number;
+};
 
 const LEAVE_DURATION = 300;
 const MAX_TOASTS = 3;
@@ -15,6 +19,26 @@ const MAX_TOASTS = 3;
 interface ToastProviderProps {
   children: ReactNode;
 }
+
+const normalizeToastOptions = ({
+  title,
+  description,
+  variant = 'default',
+  duration = 3000,
+  actionLabel,
+  onAction,
+  icon,
+  descriptionNoWrap,
+}: ShowToastOptions): NormalizedToastOptions => ({
+  title,
+  description,
+  variant,
+  duration,
+  actionLabel,
+  onAction,
+  icon,
+  descriptionNoWrap,
+});
 
 const ToastProvider = ({ children }: ToastProviderProps) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -92,14 +116,9 @@ const ToastProvider = ({ children }: ToastProviderProps) => {
   );
 
   const show = useCallback(
-    ({
-      title,
-      description,
-      variant = 'default',
-      duration = 3000,
-      actionLabel,
-      onAction,
-    }: ShowToastOptions) => {
+    (options: ShowToastOptions) => {
+      const toastOptions = normalizeToastOptions(options);
+      const { title, description, variant, duration } = toastOptions;
       const existing = toastsRef.current.find(
         (toast) =>
           toast.title === title &&
@@ -109,9 +128,7 @@ const ToastProvider = ({ children }: ToastProviderProps) => {
       );
       if (existing) {
         syncToasts((prev) =>
-          prev.map((toast) =>
-            toast.id === existing.id ? { ...toast, duration, actionLabel, onAction } : toast,
-          ),
+          prev.map((toast) => (toast.id === existing.id ? { ...toast, ...toastOptions } : toast)),
         );
         scheduleRemoval(existing.id, duration);
         return existing.id;
@@ -123,16 +140,30 @@ const ToastProvider = ({ children }: ToastProviderProps) => {
       }
 
       const id = `toast-${Date.now()}-${Math.random()}`;
-      syncToasts((prev) => [
-        ...prev,
-        { id, title, description, variant, duration, actionLabel, onAction },
-      ]);
+      syncToasts((prev) => [...prev, { id, ...toastOptions }]);
       scheduleRemoval(id, duration);
       return id;
     },
     [remove, scheduleRemoval, syncToasts],
   );
-  const contextValue = useMemo(() => ({ show, dismiss }), [dismiss, show]);
+
+  const update = useCallback(
+    (id: string, options: ShowToastOptions) => {
+      if (leaveTimersRef.current.has(id) || !toastsRef.current.some((toast) => toast.id === id)) {
+        return false;
+      }
+
+      const toastOptions = normalizeToastOptions(options);
+      syncToasts((prev) =>
+        prev.map((toast) => (toast.id === id ? { id, ...toastOptions } : toast)),
+      );
+      scheduleRemoval(id, toastOptions.duration);
+      return true;
+    },
+    [scheduleRemoval, syncToasts],
+  );
+
+  const contextValue = useMemo(() => ({ show, update, dismiss }), [dismiss, show, update]);
 
   return (
     <ToastContext.Provider value={contextValue}>
