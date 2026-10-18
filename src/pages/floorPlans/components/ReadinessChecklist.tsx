@@ -1,7 +1,13 @@
+import type { FloorRouteDiagnosisResponse } from '@apis/__generated__/data-contracts';
+
+import AlertIcon from '@assets/icons/ic-alert.svg?react';
+
 import StepProgress from '@components/progress/StepProgress';
 import type { ProgressStep } from '@components/progress/StepProgress';
 
 import * as styles from './ReadinessChecklist.css';
+import { EDITING_LOCK_HINT_ID } from '../constants/floorEditor';
+import { getLimitedExitStartNodeIds } from '../utils/routeDiagnosis';
 
 // 훈련 준비 — 시나리오를 재생하려면 이 층에 ①시작 노드(후보) ②최종 탈출구(계단) ③시작
 // 지점에서 최종 탈출구까지 이어지는 엣지 경로가 있어야 함. 이 셋이 노드추가 팝업 안 칩,
@@ -16,31 +22,47 @@ import * as styles from './ReadinessChecklist.css';
 // 경로(엣지) 항목: 시작 노드·최종 탈출구가 있어도 둘을 잇는 엣지가 없으면 경로 탐색기가
 // EVAC005("도달 가능한 EXIT 노드가 없습니다")로 실패함 — 세 항목이 뭐가 필요한지 한눈에
 // 보이도록 앞 단계가 안 끝났어도 항목 자체는 항상 보여주고, 버튼만 비활성화해서 안내함
-interface ReadinessChecklistProps {
+// 준비 단계별 충족 여부
+interface ReadinessStatus {
   hasStartNode: boolean;
   hasFinalExit: boolean;
   hasStair: boolean;
   hasRouteToExit: boolean;
-  editingLocked?: boolean;
-  editingLockHintId?: string;
+}
+
+// 단계별 처리 버튼 동작
+interface ReadinessActions {
   onAddStartNode: () => void;
   onAddStair: () => void;
   onFocusDeviceCards: () => void;
   onConnectEdges: () => void;
+  onToggleDiagnosisHighlight: () => void;
+}
+
+interface ReadinessChecklistProps {
+  routeDiagnosis?: FloorRouteDiagnosisResponse;
+  isDiagnosisHighlighted: boolean;
+  editingLocked?: boolean;
+  status: ReadinessStatus;
+  actions: ReadinessActions;
 }
 
 const ReadinessChecklist = ({
-  hasStartNode,
-  hasFinalExit,
-  hasStair,
-  hasRouteToExit,
+  routeDiagnosis,
+  isDiagnosisHighlighted,
   editingLocked = false,
-  editingLockHintId,
-  onAddStartNode,
-  onAddStair,
-  onFocusDeviceCards,
-  onConnectEdges,
+  status,
+  actions,
 }: ReadinessChecklistProps) => {
+  const { hasStartNode, hasFinalExit, hasStair, hasRouteToExit } = status;
+  const {
+    onAddStartNode,
+    onAddStair,
+    onFocusDeviceCards,
+    onConnectEdges,
+    onToggleDiagnosisHighlight,
+  } = actions;
+  const editingLockHintId = EDITING_LOCK_HINT_ID;
   // 시작/탈출구가 모두 준비돼야 엣지 연결 버튼을 누를 수 있음 — 그 전엔 항목은 보이되
   // 버튼을 비활성화함(안내 문구는 짧게 고정 — 뭐가 부족한지는 위 두 항목에서 이미 보임)
   const canConnectRoute = hasStartNode && hasFinalExit;
@@ -123,6 +145,18 @@ const ReadinessChecklist = ({
     },
   ];
 
+  if (routeDiagnosis?.ready === true) {
+    steps.push({
+      label: '대체 경로',
+      status: 'done',
+      action: <span className={styles.readinessDoneText}>완료</span>,
+    });
+  }
+
+  const unreachableNodeCount = routeDiagnosis?.unreachableNodeIds?.length ?? 0;
+  const limitedExitStartCount = getLimitedExitStartNodeIds(routeDiagnosis).length;
+  const undesignatedStairCount = routeDiagnosis?.undesignatedStairNodeIds?.length ?? 0;
+
   return (
     <div className={styles.readinessCard}>
       <div className={styles.readinessHeader}>훈련 준비 체크리스트</div>
@@ -131,6 +165,55 @@ const ReadinessChecklist = ({
       </span>
 
       <StepProgress steps={steps} />
+
+      {routeDiagnosis?.ready === false && (
+        <section className={styles.diagnosisWarning} aria-label="대체 경로 진단 결과">
+          <div className={styles.diagnosisHeader}>
+            <span className={styles.diagnosisIcon} aria-hidden="true">
+              <AlertIcon width={13} height={13} />
+            </span>
+            <strong className={styles.diagnosisTitle}>대체 경로</strong>
+            <span className={styles.diagnosisBadge}>권장</span>
+          </div>
+
+          {/* 미통과 원인(끊긴 노드·탈출구 1곳 이하 시작 후보)마다 실제로 있는 것만 안내 */}
+          <p className={styles.diagnosisDescription}>
+            {unreachableNodeCount > 0 &&
+              '어떤 탈출구와도 이어지지 않은 노드가 있어요. 가까운 노드와 엣지로 이어 주세요. '}
+            {limitedExitStartCount > 0 &&
+              '시작 후보에서 갈 수 있는 탈출구가 1곳뿐이면, 화재가 경로에 닿았을 때 재탐색할 길이 없어요. '}
+            훈련은 시작할 수 있어요.
+          </p>
+
+          <dl className={styles.diagnosisStats}>
+            <div className={styles.diagnosisStatRow}>
+              <dt>출구와 끊긴 노드</dt>
+              <dd className={styles.diagnosisStatValue}>{unreachableNodeCount}개</dd>
+            </div>
+            <div className={styles.diagnosisStatRow}>
+              <dt>탈출구가 1곳 이하인 시작 후보</dt>
+              <dd className={styles.diagnosisStatValue}>{limitedExitStartCount}개</dd>
+            </div>
+            {undesignatedStairCount > 0 && (
+              <div className={styles.diagnosisStatRow}>
+                <dt>탈출구 미지정 계단 (참고)</dt>
+                <dd className={styles.diagnosisStatValue}>{undesignatedStairCount}개</dd>
+              </div>
+            )}
+          </dl>
+
+          <div className={styles.diagnosisActionRow}>
+            <button
+              type="button"
+              className={styles.diagnosisAction}
+              aria-pressed={isDiagnosisHighlighted}
+              onClick={onToggleDiagnosisHighlight}
+            >
+              {isDiagnosisHighlighted ? '표시 끄기' : '도면에서 보기'}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

@@ -40,3 +40,9 @@ export const EMPTY_DEVICE_EDIT_FORM: DeviceEditForm = {
   rightEdgeId: '',
   cctvId: '',
 };
+
+// 우측 패널 상위 탭
+export type PanelTopFilter = 'all' | 'device' | 'zone';
+
+// 우측 패널 하위 칩(노드 종류) — 여러 개를 동시에 켤 수 있고 빈 배열이면 "전체"와 같음
+export type PanelDeviceTypeFilter = 'cctv' | 'light' | 'door' | 'stair' | 'hallway' | 'start';

@@ -74,3 +74,94 @@ export const readinessDisabledHint = style({
   whiteSpace: 'nowrap',
   clip: 'rect(0, 0, 0, 0)',
 });
+
+export const diagnosisWarning = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.space.s2,
+  border: `1px solid ${vars.color.warning}`,
+  borderRadius: vars.radius.md,
+  backgroundColor: vars.color.warningSurface,
+  padding: vars.space.s3,
+  color: vars.color.warningText,
+});
+
+export const diagnosisHeader = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.space.s2,
+});
+
+export const diagnosisIcon = style({
+  display: 'flex',
+  flexShrink: 0,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '50%',
+  backgroundColor: vars.color.warning,
+  width: '2.2rem',
+  height: '2.2rem',
+  color: vars.color.white,
+});
+
+export const diagnosisTitle = style({
+  flex: 1,
+  ...vars.typography.body14Bold,
+});
+
+export const diagnosisBadge = style({
+  flexShrink: 0,
+  border: `1px solid ${vars.color.warning}`,
+  borderRadius: vars.radius.pill,
+  backgroundColor: vars.color.white,
+  padding: `0.2rem ${vars.space.s3}`,
+  ...vars.typography.captionMedium,
+});
+
+export const diagnosisDescription = style({
+  margin: 0,
+  overflowWrap: 'break-word',
+  wordBreak: 'keep-all',
+  ...vars.typography.caption,
+});
+
+export const diagnosisStats = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.space.s1,
+  margin: 0,
+});
+
+export const diagnosisStatRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: vars.space.s2,
+  margin: 0,
+  ...vars.typography.caption,
+});
+
+export const diagnosisStatValue = style({
+  flexShrink: 0,
+  margin: 0,
+  fontWeight: vars.fontWeight.bold,
+});
+
+export const diagnosisActionRow = style({
+  display: 'flex',
+  justifyContent: 'flex-end',
+});
+
+export const diagnosisAction = style({
+  border: `1px solid ${vars.color.warningStrong}`,
+  borderRadius: vars.radius.pill,
+  backgroundColor: vars.color.white,
+  cursor: 'pointer',
+  padding: `0.3rem ${vars.space.s3}`,
+  color: vars.color.warningText,
+  ...vars.typography.captionMedium,
+  selectors: {
+    '&:hover': { backgroundColor: vars.color.warningLight },
+    '&:focus-visible': { outline: `2px solid ${vars.color.warningStrong}`, outlineOffset: '2px' },
+  },
+});

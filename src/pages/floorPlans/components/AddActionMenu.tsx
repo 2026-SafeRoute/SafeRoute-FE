@@ -5,11 +5,11 @@ import PlusIcon from '@assets/icons/ic-plus.svg?react';
 
 import useClickOutside from '@hooks/useClickOutside';
 
-import * as styles from '../FloorPlansDetailPage.css';
+import * as styles from './AddActionMenu.css';
+import { EDITING_LOCK_HINT_ID } from '../constants/floorEditor';
 
 interface AddActionMenuProps {
   disabled?: boolean;
-  disabledHintId?: string;
   onAddNode: () => void;
   onAddZone: () => void;
   onAddEdge: () => void;
@@ -18,11 +18,11 @@ interface AddActionMenuProps {
 /* ── 툴바 "+ 추가" 메뉴 — 노드/구역/엣지 추가를 각각 버튼으로 늘어놓지 않고 하나로 묶음 ── */
 const AddActionMenu = ({
   disabled = false,
-  disabledHintId,
   onAddNode,
   onAddZone,
   onAddEdge,
 }: AddActionMenuProps) => {
+  const disabledHintId = EDITING_LOCK_HINT_ID;
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   useClickOutside(

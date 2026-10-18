@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
     ANALYZE: (floorId: string) => `${API_V1}/${floorId}/analyse`,
     IMAGE_URL: (buildingId: string, floorId: string) =>
       `${API_V1}/buildings/${buildingId}/floors/${floorId}/image-url`,
+    ROUTE_DIAGNOSIS: (floorId: string) => `${API_V1}/floors/${floorId}/route-diagnosis`,
   },
 
   // S3 파일 업로드

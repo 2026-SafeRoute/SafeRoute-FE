@@ -7,34 +7,49 @@ import LoadingState from '@components/loadingState';
 import { CANVAS_W } from '@utils/floorCanvas';
 
 import AddedDevicePin from './AddedDevicePin';
+import * as styles from './canvas.css';
 import DevicePin from './DevicePin';
 import FloorCanvasSvg from './FloorCanvasSvg';
-import * as styles from '../FloorPlansDetailPage.css';
+import { EDITING_LOCK_HINT_ID } from '../../constants/floorEditor';
 
-import type { FloorGridCell } from '../api/floorGridApi';
-import type { MapEdge, MapNode } from '../api/mapGraphApi';
-import type { AddedDevice } from '../constants/devicePlacement';
-import type { StructureNode } from '../constants/structureNode';
-import type { SelectedItem, ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
-import type { DeviceMarker, Floor } from '../types/floorPlans';
-import type { LightPickFieldName } from '../utils/lightPick';
+import type { FloorGridCell } from '../../api/floorGridApi';
+import type { MapEdge, MapNode } from '../../api/mapGraphApi';
+import type { AddedDevice } from '../../constants/devicePlacement';
+import type { StructureNode } from '../../constants/structureNode';
+import type {
+  SelectedItem,
+  ZoneEntry,
+  ZoneRect,
+  ZoneRefSelection,
+} from '../../types/canvasSelection';
+import type { DeviceMarker, Floor } from '../../types/floorPlans';
+import type { FloorRouteDiagnosisHighlight } from '../../types/routeDiagnosis';
+import type { LightPickFieldName } from '../../utils/lightPick';
 
 const CANVAS_RENDER_WIDTH = 700;
 
-interface FloorCanvasProps {
-  mapWrapRef: React.RefObject<HTMLDivElement>;
-  floor: Floor;
-  resolvedImageUrl: string | null;
-  canvasH: number;
+// 장비 마커(CCTV·유도등) 표시·선택·드래그 이동
+interface FloorCanvasDeviceProps {
+  addedDevices: AddedDevice[];
+  devicePositions: Record<string, { x: number; y: number }>;
   selected: SelectedItem | null;
-  zoom: number;
   editingItemId: string | null;
-  placingActive: boolean;
+  stagedCameraPosition: { x: number; y: number } | null;
+  onSelectDevice: (d: DeviceMarker) => void;
+  onDeviceMoved: (id: string, x: number, y: number) => void;
+}
+
+// 도면을 드래그해 그리드 칸을 고르는 중(구역·CCTV 감시 영역)
+interface FloorCanvasZoneDragProps {
   zoneAddActive: boolean;
+  isZoneDragging: boolean;
   onZoneDraftChange: (rect: ZoneRect | null) => void;
   onZoneDragEnd: () => void;
-  isZoneDragging: boolean;
   onZoneDraggingChange: (dragging: boolean) => void;
+}
+
+// 노드·엣지·구역 표시와 선택·이동·연결
+interface FloorCanvasGraphProps {
   savedZones: ZoneEntry[];
   structureNodes: StructureNode[];
   editingStructureId: string | null;
@@ -50,26 +65,43 @@ interface FloorCanvasProps {
   onEdgeDelete: (id: string) => void;
   selectedZoneRef: ZoneRefSelection | null;
   onZoneRefSelect: (ref: ZoneRefSelection) => void;
+  routeDiagnosisHighlight?: FloorRouteDiagnosisHighlight;
+}
+
+// 그리드 칸 표시·선택(CCTV 감시 영역·구역 범위)
+interface FloorCanvasGridProps {
   cctvGridCellsMode: 'hidden' | 'selecting' | 'viewing' | 'browsing';
   floorGridCells: FloorGridCell[];
   selectedGridCellIds: string[];
   gridCellPxSize: { w: number; h: number };
   onGridCellToggle: (cellId: string) => void;
-  stagedCameraPosition: { x: number; y: number } | null;
-  devicePositions: Record<string, { x: number; y: number }>;
-  addedDevices: AddedDevice[];
-  onSelectDevice: (d: DeviceMarker) => void;
-  onMapClick: (x: number, y: number) => void;
-  onDeviceMoved: (id: string, x: number, y: number) => void;
-  onUpload: () => void;
-  editingLocked?: boolean;
-  editingLockHintId?: string;
-  onBackgroundClick: () => void;
+}
+
+// 유도등 갈림길·좌우 통로 미리보기와 "캔버스에서 선택"
+interface FloorCanvasLightPickProps {
   lightPreviewNodeId?: string;
   lightPreviewLeftEdgeId?: string;
   lightPreviewRightEdgeId?: string;
   lightPickField?: LightPickFieldName | null;
   onLightPick?: (id: string) => void;
+}
+
+interface FloorCanvasProps {
+  mapWrapRef: React.RefObject<HTMLDivElement>;
+  floor: Floor;
+  resolvedImageUrl: string | null;
+  canvasH: number;
+  zoom: number;
+  placingActive: boolean;
+  editingLocked?: boolean;
+  onMapClick: (x: number, y: number) => void;
+  onBackgroundClick: () => void;
+  onUpload: () => void;
+  devices: FloorCanvasDeviceProps;
+  zoneDrag: FloorCanvasZoneDragProps;
+  graph: FloorCanvasGraphProps;
+  grid: FloorCanvasGridProps;
+  lightPick: FloorCanvasLightPickProps;
 }
 
 /* ── 도면 캔버스 ── */
@@ -78,51 +110,62 @@ const FloorCanvas = ({
   floor,
   resolvedImageUrl,
   canvasH,
-  selected,
   zoom,
-  editingItemId,
   placingActive,
-  zoneAddActive,
-  onZoneDraftChange,
-  onZoneDragEnd,
-  isZoneDragging,
-  onZoneDraggingChange,
-  savedZones,
-  structureNodes,
-  editingStructureId,
-  onStructureNodeMove,
-  onStructureNodeMoveEnd,
-  graphNodes,
-  graphEdges,
-  edgeAddActive,
-  onNodeClickForEdge,
-  edgeChainNodeIds,
-  selectedEdgeId,
-  onEdgeSelect,
-  onEdgeDelete,
-  selectedZoneRef,
-  onZoneRefSelect,
-  cctvGridCellsMode,
-  floorGridCells,
-  selectedGridCellIds,
-  gridCellPxSize,
-  onGridCellToggle,
-  stagedCameraPosition,
-  devicePositions,
-  addedDevices,
-  onSelectDevice,
-  onMapClick,
-  onDeviceMoved,
-  onUpload,
   editingLocked = false,
-  editingLockHintId,
+  onMapClick,
   onBackgroundClick,
-  lightPreviewNodeId,
-  lightPreviewLeftEdgeId,
-  lightPreviewRightEdgeId,
-  lightPickField,
-  onLightPick,
+  onUpload,
+  devices,
+  zoneDrag,
+  graph,
+  grid,
+  lightPick,
 }: FloorCanvasProps) => {
+  const {
+    addedDevices,
+    devicePositions,
+    selected,
+    editingItemId,
+    stagedCameraPosition,
+    onSelectDevice,
+    onDeviceMoved,
+  } = devices;
+  const { zoneAddActive, isZoneDragging, onZoneDraftChange, onZoneDragEnd, onZoneDraggingChange } =
+    zoneDrag;
+  const {
+    savedZones,
+    structureNodes,
+    editingStructureId,
+    onStructureNodeMove,
+    onStructureNodeMoveEnd,
+    graphNodes,
+    graphEdges,
+    edgeAddActive,
+    onNodeClickForEdge,
+    edgeChainNodeIds,
+    selectedEdgeId,
+    onEdgeSelect,
+    onEdgeDelete,
+    selectedZoneRef,
+    onZoneRefSelect,
+    routeDiagnosisHighlight,
+  } = graph;
+  const {
+    cctvGridCellsMode,
+    floorGridCells,
+    selectedGridCellIds,
+    gridCellPxSize,
+    onGridCellToggle,
+  } = grid;
+  const {
+    lightPreviewNodeId,
+    lightPreviewLeftEdgeId,
+    lightPreviewRightEdgeId,
+    lightPickField,
+    onLightPick,
+  } = lightPick;
+  const editingLockHintId = EDITING_LOCK_HINT_ID;
   const hasFloorPlan = floor.segmentationStatus === 'DONE';
 
   if (!hasFloorPlan) {
@@ -216,6 +259,7 @@ const FloorCanvas = ({
           lightPickField={lightPickField}
           onLightPick={onLightPick}
           editingLocked={editingLocked}
+          routeDiagnosisHighlight={routeDiagnosisHighlight}
         />
         {stagedCameraPosition && (
           <div

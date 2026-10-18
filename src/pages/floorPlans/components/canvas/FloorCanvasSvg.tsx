@@ -1,26 +1,37 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
+import TriangleIcon from '@assets/icons/ic-triangle.svg?react';
+
+import { vars } from '@styles/global.css';
+
 import { CANVAS_W, buildZoneOutlinePath } from '@utils/floorCanvas';
 
 import GridOverlayLines from './GridOverlayLines';
-import { DEVICE_COLOR } from '../constants/deviceColors';
-import { STRUCTURE_NODE_COLOR } from '../constants/structureNode';
-import { hasExistingEdge } from '../utils/hasExistingEdge';
-import { rafThrottle } from '../utils/rafThrottle';
+import { DEVICE_COLOR } from '../../constants/deviceColors';
+import { STRUCTURE_NODE_COLOR } from '../../constants/structureNode';
+import { hasExistingEdge } from '../../utils/hasExistingEdge';
+import { rafThrottle } from '../../utils/rafThrottle';
 
-import type { FloorGridCell } from '../api/floorGridApi';
-import type { MapEdge, MapNode } from '../api/mapGraphApi';
-import type { StructureNode } from '../constants/structureNode';
-import type { ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
-import type { LightPickFieldName } from '../utils/lightPick';
+import type { FloorGridCell } from '../../api/floorGridApi';
+import type { MapEdge, MapNode } from '../../api/mapGraphApi';
+import type { StructureNode } from '../../constants/structureNode';
+import type { ZoneEntry, ZoneRect, ZoneRefSelection } from '../../types/canvasSelection';
+import type { FloorRouteDiagnosisHighlight } from '../../types/routeDiagnosis';
+import type { LightPickFieldName } from '../../utils/lightPick';
 
 // 맵그래프 노드 중 문/계단이 아닌 나머지(ROOM/HALLWAY/EXIT/CUSTOM) — 조회 전용, 아직 편집 대상 아님
 const GRAPH_NODE_COLOR: Record<'ROOM' | 'HALLWAY' | 'EXIT' | 'CUSTOM', string> = {
-  ROOM: '#9ca3af',
-  HALLWAY: '#9ca3af',
-  EXIT: '#16a34a',
+  ROOM: vars.color.gray300,
+  HALLWAY: vars.color.gray300,
+  EXIT: vars.color.success,
   CUSTOM: '#7c3aed',
 };
+
+// 계단 노드 삼각형 아이콘 크기 — 글자(▲)는 위치마다 픽셀 정렬이 달라 크기가 들쭉날쭉해 보여 도형으로 고정
+const STAIR_ICON_SIZE = 7;
+
+// 그래프 노드 진단 강조 링 반지름 — 엣지 체인 선택 링(9)보다 바깥에 그려 둘 다 보이게 함
+const GRAPH_DIAGNOSIS_RING_RADIUS = 11;
 
 interface FloorCanvasSvgProps {
   mapImageUrl: string | null;
@@ -63,6 +74,7 @@ interface FloorCanvasSvgProps {
   lightPickField?: LightPickFieldName | null;
   onLightPick?: (id: string) => void;
   editingLocked?: boolean;
+  routeDiagnosisHighlight?: FloorRouteDiagnosisHighlight;
 }
 
 // 실제 데이터를 그리는 도면 캔버스 SVG — 이름은 초기 프로토타입 시절("3층 목업")에서 남은 것
@@ -102,6 +114,7 @@ const FloorCanvasSvg = ({
   lightPickField,
   onLightPick,
   editingLocked = false,
+  routeDiagnosisHighlight,
 }: FloorCanvasSvgProps) => {
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const structureDragMovedRef = useRef(false);
@@ -265,7 +278,44 @@ const FloorCanvasSvg = ({
     document.addEventListener('mouseup', onUp);
   };
 
+  // 맵그래프 노드(방·출구 등) 클릭 — 유도등 갈림길 선택 또는 엣지 연결
+  const handleGraphNodeClick = (e: React.MouseEvent, id: string) => {
+    if (lightPickField === 'decisionNode') {
+      e.stopPropagation();
+      onLightPick?.(id);
+      return;
+    }
+    if (!edgeAddActive) return;
+    e.stopPropagation();
+    onNodeClickForEdge(id);
+  };
+
+  // 구조 노드(문·계단·복도) 클릭 — 유도등 갈림길 선택, 엣지 연결, 또는 카드 선택
+  const handleStructureNodeClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (lightPickField === 'decisionNode') {
+      onLightPick?.(id);
+      return;
+    }
+    if (edgeAddActive) {
+      onNodeClickForEdge(id);
+      return;
+    }
+    if (structureDragMovedRef.current) {
+      structureDragMovedRef.current = false;
+      return;
+    }
+    if (editingStructureId) return;
+    onZoneRefSelect({ kind: 'node', id });
+  };
+
   const svgCursor = placingActive || zoneAddActive || edgeAddActive ? 'crosshair' : 'default';
+  // 탈출구 도달 불가 노드 ID 집합
+  const unreachableNodeIds = new Set(routeDiagnosisHighlight?.unreachableNodeIds);
+  // 도달 가능 탈출구 부족 시작 후보 ID 집합
+  const limitedExitStartNodeIds = new Set(routeDiagnosisHighlight?.limitedExitStartNodeIds);
+  // 탈출구 미지정 계단 노드 ID 집합
+  const undesignatedStairNodeIds = new Set(routeDiagnosisHighlight?.undesignatedStairNodeIds);
 
   return (
     <svg
@@ -280,7 +330,7 @@ const FloorCanvasSvg = ({
       {/* 배경 — 실제 업로드된 도면 원본 이미지. 벽은 별도 데이터가 아니라 이 이미지 자체에 포함되어 있음.
           viewBox 높이(canvasH)를 도면 실제 비율에 맞춰 잡으므로, 이미지를 preserveAspectRatio="none"로
           꽉 채워도 늘어나지 않고 격자·노드·드래그 좌표(0~1 정규화)와 정확히 일치함 */}
-      <rect width={CANVAS_W} height={canvasH} fill="#f8f9fa" />
+      <rect width={CANVAS_W} height={canvasH} fill={vars.color.gray25} />
       {mapImageUrl && (
         <image
           href={mapImageUrl}
@@ -305,7 +355,7 @@ const FloorCanvasSvg = ({
         // 구간인지 보이게 함 — 색만으로는 헷갈릴 수 있어 라벨도 같이 띄움
         const isLeftPreview = !!lightPreviewLeftEdgeId && edge.id === lightPreviewLeftEdgeId;
         const isRightPreview = !!lightPreviewRightEdgeId && edge.id === lightPreviewRightEdgeId;
-        const previewColor = isLeftPreview ? '#0ea5e9' : isRightPreview ? '#f59e0b' : null;
+        const previewColor = isLeftPreview ? '#0ea5e9' : isRightPreview ? vars.color.warning : null;
         // "캔버스에서 선택" 중엔 갈림길 위치에 실제로 연결된 엣지만 고를 수 있어야 함 — 드롭다운의
         // 필터 기준(연결 여부 + 반대쪽이 이미 고른 엣지 제외)을 그대로 따름
         const isEdgePickMode = lightPickField === 'leftEdge' || lightPickField === 'rightEdge';
@@ -344,7 +394,7 @@ const FloorCanvasSvg = ({
               y1={from.y}
               x2={to.x}
               y2={to.y}
-              stroke={previewColor ?? (isSelected ? '#2563eb' : '#9ca3af')}
+              stroke={previewColor ?? (isSelected ? vars.color.primary : vars.color.gray300)}
               strokeWidth={previewColor ? '3' : isSelected ? '2.5' : '1.5'}
               strokeDasharray={previewColor ? undefined : '3 3'}
               style={{ pointerEvents: 'none' }}
@@ -380,7 +430,7 @@ const FloorCanvasSvg = ({
                   onEdgeDelete(edge.id);
                 }}
               >
-                <circle cx={midX} cy={midY} r="8" fill="#ef4444" />
+                <circle cx={midX} cy={midY} r="8" fill={vars.color.danger} />
                 <text
                   x={midX}
                   y={midY + 3}
@@ -415,7 +465,7 @@ const FloorCanvasSvg = ({
               y1={from.y}
               x2={to.x}
               y2={to.y}
-              stroke={alreadyExists ? '#9ca3af' : '#2563eb'}
+              stroke={alreadyExists ? vars.color.gray300 : vars.color.primary}
               strokeWidth="2"
               strokeDasharray="4 3"
               style={{ pointerEvents: 'none' }}
@@ -423,19 +473,73 @@ const FloorCanvasSvg = ({
           );
         })}
 
+      {/* 노드 클릭 히트영역 — 엣지 연결·유도등 갈림길 선택 모드에선 작은 점을 정확히 겨냥하기
+          어려워 넓은 투명 원을 깔아 둔다. 노드 점들보다 아래 층에 그려야 함 — 각 노드 안에 두면
+          나중에 그려지는 구조 노드의 넓은 원이 바로 옆 노드(특히 출구와 끊겨 문 옆에 붙어 있는
+          방 노드)의 점까지 덮어서, 그 노드를 눌러도 옆 노드가 선택되던 문제가 있었음 */}
+      {(edgeAddActive || lightPickField === 'decisionNode') &&
+        graphNodes.map((n) => (
+          <circle
+            key={`graph-hit-${n.id}`}
+            cx={n.x * CANVAS_W}
+            cy={n.y * canvasH}
+            r={13}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => handleGraphNodeClick(e, n.id)}
+          />
+        ))}
+      {edgeAddActive &&
+        structureNodes
+          .filter((n) => n.id !== editingStructureId)
+          .map((n) => (
+            <circle
+              key={`structure-hit-${n.id}`}
+              cx={n.x}
+              cy={n.y}
+              r={16}
+              fill="transparent"
+              style={{
+                cursor: 'pointer',
+                pointerEvents:
+                  isZoneDragging || lightPickField === 'leftEdge' || lightPickField === 'rightEdge'
+                    ? 'none'
+                    : 'auto',
+              }}
+              onClick={(e) => handleStructureNodeClick(e, n.id)}
+            />
+          ))}
+
       {/* 맵그래프 노드 중 ROOM/HALLWAY/EXIT/CUSTOM — 엣지 연결 모드에서만 클릭 가능.
           ROOM/HALLWAY는 경로 계산용 내부 포인트라 엣지 연결 모드일 때만 화면에 표시 —
           평소엔 클릭도 안 되는데 캔버스만 지저분하게 만들어서 숨김. EXIT/CUSTOM은 정보성이라 항상 표시 */}
       {graphNodes.map((n) => {
         const isRoomOrHallway = n.type === 'ROOM' || n.type === 'HALLWAY';
         const isLightPreview = !!lightPreviewNodeId && n.id === lightPreviewNodeId;
+        const isDiagnosisNode =
+          unreachableNodeIds.has(n.id) ||
+          limitedExitStartNodeIds.has(n.id) ||
+          undesignatedStairNodeIds.has(n.id);
         // "캔버스에서 선택" 중엔 갈림길 위치로 아무 노드나 고를 수 있어야 해서, ROOM/HALLWAY도
         // 엣지 연결 모드가 아니어도 이때는 보여줌(유도등의 갈림길 위치로 이미 고른 노드도 동일)
         const isNodePickMode = lightPickField === 'decisionNode';
-        if (isRoomOrHallway && !edgeAddActive && !isLightPreview && !isNodePickMode) return null;
+        if (
+          isRoomOrHallway &&
+          !edgeAddActive &&
+          !isLightPreview &&
+          !isNodePickMode &&
+          !isDiagnosisNode
+        )
+          return null;
         const x = n.x * CANVAS_W;
         const y = n.y * canvasH;
         const color = GRAPH_NODE_COLOR[n.type as 'ROOM' | 'HALLWAY' | 'EXIT' | 'CUSTOM'];
+        // 탈출구 도달 불가 노드 여부
+        const isUnreachable = unreachableNodeIds.has(n.id);
+        // 도달 가능 탈출구 부족 시작 후보 여부
+        const isLimitedExitStart = limitedExitStartNodeIds.has(n.id);
+        // 탈출구 미지정 계단 노드 여부
+        const isUndesignatedStair = undesignatedStairNodeIds.has(n.id);
         return (
           <g
             key={n.id}
@@ -443,25 +547,11 @@ const FloorCanvasSvg = ({
               pointerEvents: edgeAddActive || isNodePickMode ? 'auto' : 'none',
               cursor: 'pointer',
             }}
-            onClick={(e) => {
-              if (isNodePickMode) {
-                e.stopPropagation();
-                onLightPick?.(n.id);
-                return;
-              }
-              if (!edgeAddActive) return;
-              e.stopPropagation();
-              onNodeClickForEdge(n.id);
-            }}
+            onClick={(e) => handleGraphNodeClick(e, n.id)}
           >
-            {/* 엣지 연결 모드·유도등 갈림길 선택 모드에선 작은 점을 정확히 겨냥하기 어려워,
-                넓은 투명 히트영역을 겹쳐 둔다 */}
-            {(edgeAddActive || isNodePickMode) && (
-              <circle cx={x} cy={y} r={13} fill="transparent" />
-            )}
             {/* 체인에 이미 골라둔 노드는 테두리로 강조해서 클릭했다는 걸 바로 알 수 있게 함 */}
             {edgeChainNodeIds.includes(n.id) && (
-              <circle cx={x} cy={y} r={9} fill="none" stroke="#2563eb" strokeWidth="2" />
+              <circle cx={x} cy={y} r={9} fill="none" stroke={vars.color.primary} strokeWidth="2" />
             )}
             {/* 유도등 갈림길 위치로 고른 노드 강조 — 노란 점선 링(유도등 색과 맞춤) */}
             {isLightPreview && (
@@ -475,11 +565,42 @@ const FloorCanvasSvg = ({
                 strokeDasharray="3 2"
               />
             )}
+            {isUnreachable && (
+              <circle
+                cx={x}
+                cy={y}
+                r={GRAPH_DIAGNOSIS_RING_RADIUS}
+                fill="none"
+                stroke={vars.color.danger}
+                strokeWidth="2"
+              />
+            )}
+            {!isUnreachable && isLimitedExitStart && (
+              <circle
+                cx={x}
+                cy={y}
+                r={GRAPH_DIAGNOSIS_RING_RADIUS}
+                fill="none"
+                stroke={vars.color.warning}
+                strokeWidth="2"
+              />
+            )}
+            {!isUnreachable && !isLimitedExitStart && isUndesignatedStair && (
+              <circle
+                cx={x}
+                cy={y}
+                r={GRAPH_DIAGNOSIS_RING_RADIUS}
+                fill="none"
+                stroke={vars.color.gray300}
+                strokeWidth="2"
+                strokeDasharray="3 2"
+              />
+            )}
             <circle
               cx={x}
               cy={y}
               r={n.type === 'EXIT' ? 6 : edgeAddActive || isLightPreview || isNodePickMode ? 5 : 3}
-              fill={color}
+              fill={isUnreachable ? vars.color.danger : color}
             />
             {n.type === 'EXIT' && (
               <text
@@ -505,48 +626,35 @@ const FloorCanvasSvg = ({
         const isStair = n.type === 'stair';
         const baseColor = STRUCTURE_NODE_COLOR[n.type];
         const isLightPreview = !!lightPreviewNodeId && n.id === lightPreviewNodeId;
-        const isNodePickMode = lightPickField === 'decisionNode';
         // 왼쪽/오른쪽 통로(엣지)를 캔버스에서 고르는 중엔 노드는 고를 대상이 아닌데, 이 원이
         // 계속 클릭을 가로채고 있었음 — 엣지가 노드 바로 옆에 붙어있으면 SVG 상 나중에 그려지는
         // 이 노드 원이 클릭을 먼저 받아가서 엣지를 못 고르던 문제의 원인
         const isEdgePickMode = lightPickField === 'leftEdge' || lightPickField === 'rightEdge';
+        // 탈출구 도달 불가 구조 노드 여부
+        const isUnreachable = unreachableNodeIds.has(n.id);
+        // 도달 가능 탈출구 부족 시작 후보 여부
+        const isLimitedExitStart = limitedExitStartNodeIds.has(n.id);
+        // 탈출구 미지정 계단 노드 여부
+        const isUndesignatedStair = undesignatedStairNodeIds.has(n.id);
+        // 진단 강조 테두리 반지름
+        const diagnosisRingRadius = (n.isFinalExit ? 7 : isStair ? 6 : 5) + 5;
         return (
           <g
             key={n.id}
             onMouseDown={(e) => handleStructureMouseDown(e, n.id)}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isNodePickMode) {
-                onLightPick?.(n.id);
-                return;
-              }
-              if (edgeAddActive) {
-                onNodeClickForEdge(n.id);
-                return;
-              }
-              if (structureDragMovedRef.current) {
-                structureDragMovedRef.current = false;
-                return;
-              }
-              if (editingStructureId) return;
-              onZoneRefSelect({ kind: 'node', id: n.id });
-            }}
+            onClick={(e) => handleStructureNodeClick(e, n.id)}
             style={{
               cursor: isEditingThis ? 'grab' : 'pointer',
               pointerEvents: isZoneDragging || isEdgePickMode ? 'none' : 'auto',
             }}
           >
-            {/* 엣지 연결 모드에선 작은 점을 정확히 겨냥하기 어려워, 넓은 투명 히트영역을 겹쳐 둔다 */}
-            {edgeAddActive && !isEditingThis && (
-              <circle cx={n.x} cy={n.y} r={16} fill="transparent" />
-            )}
             {isSelected && (
               <circle
                 cx={n.x}
                 cy={n.y}
                 r={(n.isFinalExit ? 7 : isStair ? 6 : 4) + 5}
                 fill="none"
-                stroke="#2563eb"
+                stroke={vars.color.primary}
                 strokeWidth="2"
                 strokeDasharray="3 2"
               />
@@ -558,7 +666,7 @@ const FloorCanvasSvg = ({
                 cy={n.y}
                 r={(n.isFinalExit ? 7 : isStair ? 6 : 4) + 4}
                 fill="none"
-                stroke="#2563eb"
+                stroke={vars.color.primary}
                 strokeWidth="2"
               />
             )}
@@ -574,29 +682,74 @@ const FloorCanvasSvg = ({
                 strokeDasharray="3 2"
               />
             )}
+            {isUnreachable && (
+              <circle
+                cx={n.x}
+                cy={n.y}
+                r={diagnosisRingRadius}
+                fill="none"
+                stroke={vars.color.danger}
+                strokeWidth="2"
+              />
+            )}
+            {!isUnreachable && isLimitedExitStart && (
+              <circle
+                cx={n.x}
+                cy={n.y}
+                r={diagnosisRingRadius}
+                fill="none"
+                stroke={vars.color.warning}
+                strokeWidth="2"
+              />
+            )}
+            {!isUnreachable && !isLimitedExitStart && isUndesignatedStair && (
+              <circle
+                cx={n.x}
+                cy={n.y}
+                r={diagnosisRingRadius}
+                fill="none"
+                stroke={vars.color.gray300}
+                strokeWidth="2"
+                strokeDasharray="3 2"
+              />
+            )}
             <circle
               cx={n.x}
               cy={n.y}
               r={n.isFinalExit ? 7 : n.isStartCandidate ? 6 : isEditingThis ? 6 : isStair ? 5 : 4}
-              fill={n.isFinalExit ? '#16a34a' : n.isStartCandidate ? DEVICE_COLOR.start : baseColor}
+              fill={
+                isUnreachable
+                  ? vars.color.danger
+                  : !isLimitedExitStart && isUndesignatedStair
+                    ? 'none'
+                    : n.isFinalExit
+                      ? vars.color.success
+                      : n.isStartCandidate
+                        ? DEVICE_COLOR.start
+                        : baseColor
+              }
               stroke={
-                isEditingThis ? '#f59e0b' : n.isFinalExit || n.isStartCandidate ? 'white' : 'none'
+                isEditingThis
+                  ? vars.color.warning
+                  : n.isFinalExit || n.isStartCandidate
+                    ? vars.color.white
+                    : 'none'
               }
               strokeWidth={isEditingThis ? 3 : n.isFinalExit || n.isStartCandidate ? 2 : 0}
             />
             {isStair && (
-              <text
-                x={n.x}
-                y={n.y + 3}
-                textAnchor="middle"
-                fontSize="8"
-                fontWeight="700"
-                fill="white"
-                fontFamily="sans-serif"
+              <TriangleIcon
+                x={n.x - STAIR_ICON_SIZE / 2}
+                y={n.y - STAIR_ICON_SIZE / 2}
+                width={STAIR_ICON_SIZE}
+                height={STAIR_ICON_SIZE}
+                color={
+                  !isUnreachable && !isLimitedExitStart && isUndesignatedStair
+                    ? vars.color.gray300
+                    : vars.color.white
+                }
                 style={{ pointerEvents: 'none' }}
-              >
-                ▲
-              </text>
+              />
             )}
             {n.isFinalExit && (
               <text
@@ -605,7 +758,7 @@ const FloorCanvasSvg = ({
                 textAnchor="middle"
                 fontSize="9"
                 fontWeight="700"
-                fill="#16a34a"
+                fill={vars.color.success}
                 fontFamily="sans-serif"
                 style={{ pointerEvents: 'none' }}
               >
@@ -660,7 +813,7 @@ const FloorCanvasSvg = ({
                 d={buildZoneOutlinePath(cells, gridCellPxSize, canvasH)}
                 fillRule="evenodd"
                 fill="rgba(107,114,128,0.15)"
-                stroke={isSelected ? '#2563eb' : '#6b7280'}
+                stroke={isSelected ? vars.color.primary : '#6b7280'}
                 strokeWidth={isSelected ? '2' : '1'}
               />
               <text
@@ -698,7 +851,7 @@ const FloorCanvasSvg = ({
                 d={buildZoneOutlinePath(selectedCells, gridCellPxSize, canvasH)}
                 fillRule="evenodd"
                 fill="rgba(139,92,246,0.3)"
-                stroke="#8b5cf6"
+                stroke={vars.color.purple}
                 strokeWidth="1.5"
                 style={{ pointerEvents: 'none' }}
               />
