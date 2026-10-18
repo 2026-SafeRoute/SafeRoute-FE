@@ -25,8 +25,9 @@ const formatRouteSegment = (segment?: RouteSegment) => {
 
 export const formatRouteProposal = (
   detail: RouteRecalculationDetailResponse | undefined,
-  status = detail?.status,
+  summary?: RouteRecalculationSummaryResponse,
 ) => {
+  const status = summary?.status ?? detail?.status;
   if (status === 'CANCELLED') {
     return {
       status: 'CANCELLED' as const,
@@ -36,17 +37,22 @@ export const formatRouteProposal = (
     };
   }
 
-  if (!detail) return null;
+  const recalculation = detail ?? summary;
+  if (!recalculation || status !== 'PENDING') return null;
 
-  const isFireSpread = detail.triggerType === 'FIRE_SPREAD';
+  const isFireSpread = recalculation.triggerType === 'FIRE_SPREAD';
   const density =
-    isFireSpread || detail.density === undefined
+    isFireSpread || recalculation.density === undefined
       ? null
-      : `${detail.density.toFixed(1)}명/㎡ 밀집도 감지`;
-  const source = isFireSpread ? null : (detail.cctvCode ?? null);
+      : `${recalculation.density.toFixed(1)}명/㎡ 밀집도 감지`;
+  const source = isFireSpread ? null : (recalculation.cctvCode ?? null);
   const reason = [source, density].filter(Boolean).join(' · ');
-  const previousRoute = formatRouteSegment(detail.previousRoute);
-  const candidateRoute = formatRouteSegment(detail.candidateRoute);
+  const previousRoute = detail
+    ? formatRouteSegment(detail.previousRoute)
+    : '경로 정보를 불러오는 중...';
+  const candidateRoute = detail
+    ? formatRouteSegment(detail.candidateRoute)
+    : '경로 정보를 불러오는 중...';
 
   return {
     status: 'PENDING' as const,

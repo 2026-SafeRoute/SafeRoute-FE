@@ -6,14 +6,22 @@ import { useLocation, useNavigate } from 'react-router';
 import { useGetTrainingStatusQuery } from '@pages/home/api/useTrainingStatusQuery';
 import type { RunningTrainingStatusResponse } from '@pages/home/types/home';
 import {
+  routeRecalculationDetailQueryOptions,
+  routeRecalculationQueryKeys,
+} from '@pages/scenarioSettings/api/routeRecalculations/routeRecalculationQueries';
+import {
   ROUTE_RECALCULATION_EXPIRED_MESSAGE,
   ROUTE_RECALCULATION_EXPIRED_TITLE,
 } from '@pages/scenarioSettings/constants/scenarioSettings';
+import { getRouteEventStatus } from '@pages/scenarioSettings/utils/trainingRouteEvents';
 import { monitoringQueryKeys } from '@pages/trainingAnalysis/api/monitoringQueryKeys';
 import { useSessionContextQuery } from '@pages/trainingAnalysis/api/useSessionContextQuery';
 import type { TrainingSessionContext } from '@pages/trainingAnalysis/types/trainingAnalysis';
 
-import type { TrainingSessionSummaryResponse } from '@apis/__generated__/data-contracts';
+import type {
+  RouteRecalculationSummaryResponse,
+  TrainingSessionSummaryResponse,
+} from '@apis/__generated__/data-contracts';
 import { scenarioQueryKeys } from '@apis/scenarios/scenarioQueryKeys';
 import {
   SESSION_DISCOVERY_POLL_INTERVAL_MS,
@@ -111,6 +119,49 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
     [show],
   );
 
+  const syncRouteRecalculationCache = useCallback(
+    (
+      event: TrainingSessionEvent<RouteRecalculationEventData>,
+      recalculationId: string | undefined,
+    ) => {
+      if (!recalculationId) return;
+
+      const params = { trainingSessionId: event.sessionId };
+      const status = getRouteEventStatus(event);
+      const eventSummary: RouteRecalculationSummaryResponse = {
+        recalculationId,
+        trainingSessionId: event.sessionId,
+        status,
+        requestedAt: event.occurredAt,
+        triggerEdgeId: event.data.triggerEdgeId ?? undefined,
+        triggerType: event.data.triggerType,
+        congestionLevel: event.data.congestionLevel ?? undefined,
+      };
+
+      queryClient.setQueryData<RouteRecalculationSummaryResponse[]>(
+        routeRecalculationQueryKeys.list(params),
+        (items) => {
+          const existing = items?.find((item) => item.recalculationId === recalculationId);
+          if (!existing && status !== 'PENDING' && status !== 'CANCELLED') return items;
+
+          const updated = {
+            ...existing,
+            ...eventSummary,
+            requestedAt: existing?.requestedAt ?? eventSummary.requestedAt,
+          };
+          return existing
+            ? items?.map((item) => (item.recalculationId === recalculationId ? updated : item))
+            : [updated, ...(items ?? [])];
+        },
+      );
+
+      if (status === 'PENDING') {
+        void queryClient.prefetchQuery(routeRecalculationDetailQueryOptions(recalculationId));
+      }
+    },
+    [queryClient],
+  );
+
   useTrainingSessionSocket({
     sessionId: session.sessionId,
     onEvent: (event) => {
@@ -160,6 +211,7 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
       const eventKey = `${event.eventType}:${recalculationId ?? event.occurredAt}`;
       if (processedRouteEventKeys.current.has(eventKey)) return;
       processedRouteEventKeys.current.add(eventKey);
+      syncRouteRecalculationCache(routeEvent, recalculationId);
 
       if (event.eventType === TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_REQUESTED) {
         if (isScenarioPage) return;

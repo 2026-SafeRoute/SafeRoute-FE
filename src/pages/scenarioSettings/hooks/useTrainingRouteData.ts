@@ -96,7 +96,7 @@ export const useTrainingRouteData = ({
   );
   const approveMutation = useApproveRouteRecalculationMutation();
   const rejectMutation = useRejectRouteRecalculationMutation();
-  const routeProposal = formatRouteProposal(detailQuery.data, visibleRecalculation?.status);
+  const routeProposal = formatRouteProposal(detailQuery.data, visibleRecalculation);
   const currentRouteMessage = getCurrentRouteMessage(
     currentRouteQuery.data,
     currentRouteQuery.isPending,
