@@ -3,12 +3,14 @@ import { useRef, useState } from 'react';
 import AlertIcon from '@assets/icons/ic-alert.svg?react';
 import BellIcon from '@assets/icons/ic-bell.svg?react';
 import CheckCircleIcon from '@assets/icons/ic-check-circle.svg?react';
+import InfoIcon from '@assets/icons/ic-info.svg?react';
 import XCircleIcon from '@assets/icons/ic-x-circle.svg?react';
 import XIcon from '@assets/icons/ic-x.svg?react';
 
 import * as styles from './Toast.css';
 
 export type ToastVariant = 'default' | 'success' | 'warning' | 'error';
+export type ToastIcon = 'notification' | 'info';
 
 export interface ToastProps {
   id: string;
@@ -18,6 +20,8 @@ export interface ToastProps {
   duration?: number;
   actionLabel?: string;
   onAction?: () => void;
+  icon?: ToastIcon;
+  descriptionNoWrap?: boolean;
   leaving?: boolean;
   onClose: (id: string) => void;
 }
@@ -39,6 +43,8 @@ const Toast = ({
   duration = 3000,
   actionLabel,
   onAction,
+  icon = 'notification',
+  descriptionNoWrap = false,
   leaving = false,
   onClose,
 }: ToastProps) => {
@@ -79,7 +85,7 @@ const Toast = ({
 
   return (
     <div
-      className={styles.container({ variant, leaving })}
+      className={styles.container({ variant, leaving, wide: descriptionNoWrap })}
       role="alert"
       aria-live="polite"
       style={{
@@ -98,10 +104,16 @@ const Toast = ({
       onPointerLeave={handlePointerUp}
       onPointerCancel={handlePointerCancel}
     >
-      <span className={styles.iconWrapper({ variant })}>{ICONS[variant]}</span>
+      <span className={styles.iconWrapper({ variant })}>
+        {icon === 'info' ? <InfoIcon width={22} height={22} /> : ICONS[variant]}
+      </span>
       <div className={styles.body}>
         <span className={styles.title({ variant })}>{title}</span>
-        {description && <span className={styles.description({ variant })}>{description}</span>}
+        {description && (
+          <span className={styles.description({ variant, noWrap: descriptionNoWrap })}>
+            {description}
+          </span>
+        )}
         {actionLabel && onAction && (
           <button
             type="button"
