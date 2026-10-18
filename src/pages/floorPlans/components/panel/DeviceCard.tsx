@@ -10,10 +10,32 @@ import Dropdown from '@components/dropdown';
 import { formatAreaM2 } from '@utils/format';
 
 import * as styles from './panelCard.css';
+import { EDITING_LOCK_HINT_ID } from '../../constants/floorEditor';
 import LightGuidanceFields from '../popups/LightGuidanceFields';
 
 import type { DeviceEditForm, PanelItem } from '../../types/panelItem';
 import type { LightPickFieldName } from '../../utils/lightPick';
+
+// 카드에서 일어나는 동작
+interface DeviceCardActions {
+  onSelect: (item: PanelItem) => void;
+  onStartEdit: (item: PanelItem) => void;
+  onSaveEdit: (item: PanelItem) => void;
+  onCancelEdit: (item: PanelItem) => void;
+  onDelete: (item: PanelItem) => void;
+  onToggleEnabled: (item: PanelItem) => void;
+  onEditCctvCells: (item: PanelItem) => void;
+}
+
+// 유도등 담당 CCTV·갈림길·좌우 통로 선택지와 "캔버스에서 선택" 모드
+interface DeviceCardLightProps {
+  lightNodeOptions: { id: string; label: string }[];
+  lightEdgeOptions: { id: string; label: string; fromNodeId: string; toNodeId: string }[];
+  lightCctvOptions: { id: string; label: string }[];
+  // "캔버스에서 선택" — 드롭다운 대신 도면에서 직접 클릭해 갈림길 위치·좌우 통로를 고르는 대안
+  lightPickField: LightPickFieldName | null;
+  onStartLightPick: (field: LightPickFieldName) => void;
+}
 
 interface DeviceCardProps {
   item: PanelItem;
@@ -23,21 +45,9 @@ interface DeviceCardProps {
   // 폼이 원본과 달라졌는지 — "완료" 버튼을 실제로 바뀐 게 있을 때만 눌리게 하는 데 씀
   hasChanges: boolean;
   editingLocked?: boolean;
-  editingLockHintId?: string;
   onEditFormChange: (form: DeviceEditForm) => void;
-  onSelect: (item: PanelItem) => void;
-  onStartEdit: (item: PanelItem) => void;
-  onSaveEdit: (item: PanelItem) => void;
-  onCancelEdit: (item: PanelItem) => void;
-  onDelete: (item: PanelItem) => void;
-  onToggleEnabled: (item: PanelItem) => void;
-  onEditCctvCells: (item: PanelItem) => void;
-  lightNodeOptions: { id: string; label: string }[];
-  lightEdgeOptions: { id: string; label: string; fromNodeId: string; toNodeId: string }[];
-  lightCctvOptions: { id: string; label: string }[];
-  // "캔버스에서 선택" — 드롭다운 대신 도면에서 직접 클릭해 갈림길 위치·좌우 통로를 고르는 대안
-  lightPickField: LightPickFieldName | null;
-  onStartLightPick: (field: LightPickFieldName) => void;
+  actions: DeviceCardActions;
+  light: DeviceCardLightProps;
 }
 
 /* ── 장비 카드 ── */
@@ -48,21 +58,22 @@ const DeviceCard = ({
   editForm,
   hasChanges,
   editingLocked = false,
-  editingLockHintId,
   onEditFormChange,
-  onSelect,
-  onStartEdit,
-  onSaveEdit,
-  onCancelEdit,
-  onDelete,
-  onToggleEnabled,
-  onEditCctvCells,
-  lightNodeOptions,
-  lightEdgeOptions,
-  lightCctvOptions,
-  lightPickField,
-  onStartLightPick,
+  actions,
+  light,
 }: DeviceCardProps) => {
+  const {
+    onSelect,
+    onStartEdit,
+    onSaveEdit,
+    onCancelEdit,
+    onDelete,
+    onToggleEnabled,
+    onEditCctvCells,
+  } = actions;
+  const { lightNodeOptions, lightEdgeOptions, lightCctvOptions, lightPickField, onStartLightPick } =
+    light;
+  const editingLockHintId = EDITING_LOCK_HINT_ID;
   // 가이던스·방향처럼 자주 안 건드리는 항목은 접어둬서, 수정 모드로 들어갈 때 카드가
   // 일반 모드보다 과하게 길어지는 걸 줄임
   const [detailsOpen, setDetailsOpen] = useState(false);

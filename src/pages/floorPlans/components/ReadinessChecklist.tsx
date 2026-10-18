@@ -6,6 +6,7 @@ import StepProgress from '@components/progress/StepProgress';
 import type { ProgressStep } from '@components/progress/StepProgress';
 
 import * as styles from './ReadinessChecklist.css';
+import { EDITING_LOCK_HINT_ID } from '../constants/floorEditor';
 
 // 훈련 준비 — 시나리오를 재생하려면 이 층에 ①시작 노드(후보) ②최종 탈출구(계단) ③시작
 // 지점에서 최종 탈출구까지 이어지는 엣지 경로가 있어야 함. 이 셋이 노드추가 팝업 안 칩,
@@ -20,15 +21,16 @@ import * as styles from './ReadinessChecklist.css';
 // 경로(엣지) 항목: 시작 노드·최종 탈출구가 있어도 둘을 잇는 엣지가 없으면 경로 탐색기가
 // EVAC005("도달 가능한 EXIT 노드가 없습니다")로 실패함 — 세 항목이 뭐가 필요한지 한눈에
 // 보이도록 앞 단계가 안 끝났어도 항목 자체는 항상 보여주고, 버튼만 비활성화해서 안내함
-interface ReadinessChecklistProps {
+// 준비 단계별 충족 여부
+interface ReadinessStatus {
   hasStartNode: boolean;
   hasFinalExit: boolean;
   hasStair: boolean;
   hasRouteToExit: boolean;
-  routeDiagnosis?: FloorRouteDiagnosisResponse;
-  isDiagnosisHighlighted: boolean;
-  editingLocked?: boolean;
-  editingLockHintId?: string;
+}
+
+// 단계별 처리 버튼 동작
+interface ReadinessActions {
   onAddStartNode: () => void;
   onAddStair: () => void;
   onFocusDeviceCards: () => void;
@@ -36,21 +38,30 @@ interface ReadinessChecklistProps {
   onToggleDiagnosisHighlight: () => void;
 }
 
+interface ReadinessChecklistProps {
+  routeDiagnosis?: FloorRouteDiagnosisResponse;
+  isDiagnosisHighlighted: boolean;
+  editingLocked?: boolean;
+  status: ReadinessStatus;
+  actions: ReadinessActions;
+}
+
 const ReadinessChecklist = ({
-  hasStartNode,
-  hasFinalExit,
-  hasStair,
-  hasRouteToExit,
   routeDiagnosis,
   isDiagnosisHighlighted,
   editingLocked = false,
-  editingLockHintId,
-  onAddStartNode,
-  onAddStair,
-  onFocusDeviceCards,
-  onConnectEdges,
-  onToggleDiagnosisHighlight,
+  status,
+  actions,
 }: ReadinessChecklistProps) => {
+  const { hasStartNode, hasFinalExit, hasStair, hasRouteToExit } = status;
+  const {
+    onAddStartNode,
+    onAddStair,
+    onFocusDeviceCards,
+    onConnectEdges,
+    onToggleDiagnosisHighlight,
+  } = actions;
+  const editingLockHintId = EDITING_LOCK_HINT_ID;
   // 시작/탈출구가 모두 준비돼야 엣지 연결 버튼을 누를 수 있음 — 그 전엔 항목은 보이되
   // 버튼을 비활성화함(안내 문구는 짧게 고정 — 뭐가 부족한지는 위 두 항목에서 이미 보임)
   const canConnectRoute = hasStartNode && hasFinalExit;

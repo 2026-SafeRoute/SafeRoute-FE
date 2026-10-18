@@ -23,16 +23,8 @@ export type LightAddFields = {
   rightEdgeId: string;
 };
 
-interface NodeAddPopupProps {
-  type: PlacingDeviceType;
-  onTypeChange: (type: PlacingDeviceType) => void;
-  stage: 'entry' | 'fov';
-  hasPosition: boolean;
-  selectedCellCount: number;
-  onCancel: () => void;
-  onBack: () => void;
-  onSubmitEntry: (type: PlacingDeviceType, deviceId: string, lightFields: LightAddFields) => void;
-  onFinalize: (deviceId: string) => void;
+// 유도등 담당 CCTV·갈림길·좌우 통로 입력 — 갈림길·통로 값은 캔버스 클릭으로도 채워져서 부모가 가짐
+interface NodeAddLightProps {
   lightNodeOptions: { id: string; label: string }[];
   lightEdgeOptions: { id: string; label: string; fromNodeId: string; toNodeId: string }[];
   lightCctvOptions: { id: string; label: string }[];
@@ -43,6 +35,19 @@ interface NodeAddPopupProps {
   onLightFieldsChange: (fields: LightGuidanceValue) => void;
   lightPickField: LightPickFieldName | null;
   onStartLightPick: (field: LightPickFieldName) => void;
+}
+
+interface NodeAddPopupProps {
+  type: PlacingDeviceType;
+  onTypeChange: (type: PlacingDeviceType) => void;
+  stage: 'entry' | 'fov';
+  hasPosition: boolean;
+  selectedCellCount: number;
+  onCancel: () => void;
+  onBack: () => void;
+  onSubmitEntry: (type: PlacingDeviceType, deviceId: string, lightFields: LightAddFields) => void;
+  onFinalize: (deviceId: string) => void;
+  light: NodeAddLightProps;
 }
 
 /* ── 장비 추가 팝업 ──
@@ -61,14 +66,17 @@ const NodeAddPopup = ({
   onBack,
   onSubmitEntry,
   onFinalize,
-  lightNodeOptions,
-  lightEdgeOptions,
-  lightCctvOptions,
-  lightFields,
-  onLightFieldsChange,
-  lightPickField,
-  onStartLightPick,
+  light,
 }: NodeAddPopupProps) => {
+  const {
+    lightNodeOptions,
+    lightEdgeOptions,
+    lightCctvOptions,
+    lightFields,
+    onLightFieldsChange,
+    lightPickField,
+    onStartLightPick,
+  } = light;
   const [deviceId, setDeviceId] = useState('');
   // 담당 CCTV는 캔버스에서 고를 대상이 아니라(그래프 노드/엣지가 아님) 계속 이 팝업 로컬
   // state로 둠 — 수정 카드(DeviceCard)와 채워야 하는 값이 서로 달라 등록 직후엔 "훈련 준비"에

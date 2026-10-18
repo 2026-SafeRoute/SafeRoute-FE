@@ -5,8 +5,17 @@ import EditIcon from '@assets/icons/ic-edit.svg?react';
 import TrashIcon from '@assets/icons/ic-trash.svg?react';
 
 import * as styles from './panelCard.css';
+import { EDITING_LOCK_HINT_ID } from '../../constants/floorEditor';
 
 import type { ZoneEntry } from '../../types/canvasSelection';
+
+// 카드에서 일어나는 동작
+interface ZoneCardActions {
+  onSelect: (id: string) => void;
+  onStartEdit: (zone: ZoneEntry) => void;
+  onSaveLabel: (id: string) => void;
+  onDelete: (zone: ZoneEntry) => void;
+}
 
 interface ZoneCardProps {
   zone: ZoneEntry;
@@ -16,12 +25,8 @@ interface ZoneCardProps {
   // 수정 중 도면에서 다시 고른 칸 수
   draftCellCount: number;
   editingLocked: boolean;
-  editingLockHintId: string;
   onEditLabelChange: (label: string) => void;
-  onSelect: (id: string) => void;
-  onStartEdit: (zone: ZoneEntry) => void;
-  onSaveLabel: (id: string) => void;
-  onDelete: (zone: ZoneEntry) => void;
+  actions: ZoneCardActions;
 }
 
 /* ── 우측 패널 구역 카드 ── */
@@ -32,13 +37,11 @@ const ZoneCard = ({
   editLabel,
   draftCellCount,
   editingLocked,
-  editingLockHintId,
   onEditLabelChange,
-  onSelect,
-  onStartEdit,
-  onSaveLabel,
-  onDelete,
+  actions,
 }: ZoneCardProps) => {
+  const { onSelect, onStartEdit, onSaveLabel, onDelete } = actions;
+  const editingLockHintId = EDITING_LOCK_HINT_ID;
   const lockHintId = editingLocked ? editingLockHintId : undefined;
 
   return (

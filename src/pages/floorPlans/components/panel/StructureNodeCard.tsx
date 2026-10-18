@@ -5,9 +5,19 @@ import EditIcon from '@assets/icons/ic-edit.svg?react';
 import TrashIcon from '@assets/icons/ic-trash.svg?react';
 
 import * as styles from './panelCard.css';
+import { EDITING_LOCK_HINT_ID } from '../../constants/floorEditor';
 import { STRUCTURE_NODE_LABEL, ZONE_CARD_DOT_CLASS } from '../../constants/structureNode';
 
 import type { StructureNode } from '../../constants/structureNode';
+
+// 카드에서 일어나는 동작
+interface StructureNodeCardActions {
+  onSelect: (id: string) => void;
+  onToggleFinalExit: (id: string) => void;
+  onToggleStartCandidate: (id: string) => void;
+  onStartEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}
 
 interface StructureNodeCardProps {
   node: StructureNode;
@@ -18,12 +28,7 @@ interface StructureNodeCardProps {
   diagnosisUnreachable: boolean;
   startCandidatePending: boolean;
   editingLocked: boolean;
-  editingLockHintId: string;
-  onSelect: (id: string) => void;
-  onToggleFinalExit: (id: string) => void;
-  onToggleStartCandidate: (id: string) => void;
-  onStartEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  actions: StructureNodeCardActions;
 }
 
 /* ── 우측 패널 구조 노드(문·계단·복도·시작 후보) 카드 ── */
@@ -35,13 +40,10 @@ const StructureNodeCard = ({
   diagnosisUnreachable,
   startCandidatePending,
   editingLocked,
-  editingLockHintId,
-  onSelect,
-  onToggleFinalExit,
-  onToggleStartCandidate,
-  onStartEdit,
-  onDelete,
+  actions,
 }: StructureNodeCardProps) => {
+  const { onSelect, onToggleFinalExit, onToggleStartCandidate, onStartEdit, onDelete } = actions;
+  const editingLockHintId = EDITING_LOCK_HINT_ID;
   const lockHintId = editingLocked ? editingLockHintId : undefined;
 
   return (

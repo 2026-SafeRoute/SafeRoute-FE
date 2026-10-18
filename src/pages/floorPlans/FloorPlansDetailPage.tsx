@@ -31,7 +31,6 @@ import NodeAddPopup from './components/popups/NodeAddPopup';
 import SidebarPopup from './components/popups/SidebarPopup';
 import ZoneAddPopup from './components/popups/ZoneAddPopup';
 import ReadinessChecklist from './components/ReadinessChecklist';
-import { EDITING_LOCK_HINT_ID } from './constants/floorEditor';
 import { API_TYPE_TO_STRUCTURE, STRUCTURE_NODE_LABEL } from './constants/structureNode';
 import * as styles from './FloorPlansDetailPage.css';
 import { useDeviceEditing } from './hooks/useDeviceEditing';
@@ -57,8 +56,8 @@ import { hasRouteToExit } from './utils/hasRouteToExit';
 import type { AddedDevice } from './constants/devicePlacement';
 import type { StructureNode } from './constants/structureNode';
 import type { SelectedItem, ZoneEntry, ZoneRect, ZoneRefSelection } from './types/canvasSelection';
+import type { DeviceMarker } from './types/floorPlans';
 import type { PanelDeviceTypeFilter, PanelItem, PanelTopFilter } from './types/panelItem';
-
 // 그리드(PUT /floors/{id}/grid, GET /floors/{id}/grid/cells)는 두 가지 용도로만 존재함:
 //  1) 사용자 구역(user-zone): 구역 = 그리드 셀 id의 집합(UserZoneCreateRequest.cellIds). 셀 단위로만 선택 가능
 //  2) 화재 구역(fire-zone): 초기 발화 셀 = 그리드 셀 id 하나(CreateFireZoneRequest.gridCellId), 화재 확산 시뮬레이션 기준
@@ -853,6 +852,57 @@ const FloorPlansDetailPage = () => {
         ? (realCctvs.find((c) => c.id === selectedItem.data.id)?.gridCells.map((c) => c.id) ?? [])
         : [];
 
+  // 도면에서 장비 마커 클릭 — 그 카드가 패널에 드러나도록 필터도 함께 이동
+  const handleSelectDevice = (d: DeviceMarker) => {
+    const isSame = selectedItem?.kind === 'device' && selectedItem.data.id === d.id;
+    if (!isSame) setDevicePanelOpenOverride(true);
+    setSelectedItem(isSame ? null : { kind: 'device', data: d });
+    setSelectedZoneRef(null);
+    // 엣지를 선택해둔 채로 장비를 고르면 엣지 강조가 그대로 남아있던 문제 —
+    // 포커스는 하나만 유지되게 함
+    setSelectedEdgeId(null);
+    // 지금 하위 필터에 가려져 있어도 이 장비 카드가 패널에 드러나도록 그 종류로 이동
+    // (다른 칩은 정리 — 안 그러면 이 종류가 아직 안 켜져 있을 때 여전히 숨어 있음)
+    setTopFilter((prev) => (prev === 'zone' ? 'all' : prev));
+    const chip = deviceTypeToFilterChip(d.type);
+    setDeviceTypeFilter(chip ? [chip] : []);
+  };
+
+  // 도면 빈 곳 클릭 — 장비·노드·구역·엣지 선택 해제
+  const handleBackgroundClick = () => {
+    setSelectedItem(null);
+    setSelectedZoneRef(null);
+    setSelectedEdgeId(null);
+  };
+
+  // 구조 노드 카드 동작
+  const structureNodeCardActions = {
+    onSelect: (id: string) => handleZoneRefSelect({ kind: 'node', id }),
+    onToggleFinalExit: handleToggleFinalExit,
+    onToggleStartCandidate: handleToggleStartCandidate,
+    onStartEdit: handleStartEditStructure,
+    onDelete: handleStructureNodeDelete,
+  };
+
+  // 장비 카드 동작
+  const deviceCardActions = {
+    onSelect: handlePanelItemSelect,
+    onStartEdit: handleStartEdit,
+    onSaveEdit: handleSaveEdit,
+    onCancelEdit: handleCancelEdit,
+    onDelete: handlePanelItemDelete,
+    onToggleEnabled: handleToggleEnabled,
+    onEditCctvCells: handleStartEditCctvCells,
+  };
+
+  // 구역 카드 동작
+  const zoneCardActions = {
+    onSelect: (id: string) => handleZoneRefSelect({ kind: 'zone', id }),
+    onStartEdit: handleStartEditZone,
+    onSaveLabel: handleSaveZoneLabel,
+    onDelete: handleZoneDeleteRequest,
+  };
+
   return (
     <>
       <div ref={layoutRef} className={styles.layout}>
@@ -872,26 +922,29 @@ const FloorPlansDetailPage = () => {
              새로고침 전엔 안 뜨던 문제. 캔버스도 아래에서 resolvedFloor로 판단함 */}
           {resolvedFloor?.segmentationStatus === 'DONE' && (
             <ReadinessChecklist
-              hasStartNode={structureNodes.some((n) => n.type === 'start' || n.isStartCandidate)}
-              hasFinalExit={structureNodes.some((n) => n.isFinalExit)}
-              hasStair={structureNodes.some((n) => n.type === 'stair')}
-              hasRouteToExit={hasRouteFromStartToExit}
               routeDiagnosis={routeDiagnosisQuery.isError ? undefined : routeDiagnosisQuery.data}
               isDiagnosisHighlighted={isDiagnosisHighlighted}
               editingLocked={editingLocked}
-              editingLockHintId={EDITING_LOCK_HINT_ID}
-              onAddStartNode={() => {
-                // 시작 후보는 문·출입구 카드에서 지정 — 해당 필터로 이동
-                setTopFilter('device');
-                setDeviceTypeFilter(['door']);
+              status={{
+                hasStartNode: structureNodes.some((n) => n.type === 'start' || n.isStartCandidate),
+                hasFinalExit: structureNodes.some((n) => n.isFinalExit),
+                hasStair: structureNodes.some((n) => n.type === 'stair'),
+                hasRouteToExit: hasRouteFromStartToExit,
               }}
-              onAddStair={() => handleOpenNodeAdd('stair')}
-              onFocusDeviceCards={() => {
-                setTopFilter('device');
-                setDeviceTypeFilter([]);
+              actions={{
+                onAddStartNode: () => {
+                  // 시작 후보는 문·출입구 카드에서 지정 — 해당 필터로 이동
+                  setTopFilter('device');
+                  setDeviceTypeFilter(['door']);
+                },
+                onAddStair: () => handleOpenNodeAdd('stair'),
+                onFocusDeviceCards: () => {
+                  setTopFilter('device');
+                  setDeviceTypeFilter([]);
+                },
+                onConnectEdges: handleOpenEdgeAdd,
+                onToggleDiagnosisHighlight: toggleDiagnosisHighlight,
               }}
-              onConnectEdges={handleOpenEdgeAdd}
-              onToggleDiagnosisHighlight={toggleDiagnosisHighlight}
             />
           )}
 
@@ -947,13 +1000,15 @@ const FloorPlansDetailPage = () => {
               onBack={handleNodeAddBack}
               onSubmitEntry={handleSubmitNodeEntry}
               onFinalize={handleFinalizeFov}
-              lightNodeOptions={lightNodeOptions}
-              lightEdgeOptions={lightEdgeOptions}
-              lightCctvOptions={lightCctvOptions}
-              lightFields={nodeAddLightFields}
-              onLightFieldsChange={setNodeAddLightFields}
-              lightPickField={nodeAddLightPickField}
-              onStartLightPick={(field) => handleStartLightPick('add', field)}
+              light={{
+                lightNodeOptions,
+                lightEdgeOptions,
+                lightCctvOptions,
+                lightFields: nodeAddLightFields,
+                onLightFieldsChange: setNodeAddLightFields,
+                lightPickField: nodeAddLightPickField,
+                onStartLightPick: (field) => handleStartLightPick('add', field),
+              }}
             />
           )}
 
@@ -977,7 +1032,6 @@ const FloorPlansDetailPage = () => {
           addMenu={
             <AddActionMenu
               disabled={editingLocked}
-              disabledHintId={EDITING_LOCK_HINT_ID}
               onAddNode={() => handleOpenNodeAdd()}
               onAddZone={handleToggleZoneAdd}
               onAddEdge={handleOpenEdgeAdd}
@@ -1003,70 +1057,63 @@ const FloorPlansDetailPage = () => {
               floor={resolvedFloor}
               resolvedImageUrl={resolvedMapImageUrl}
               canvasH={canvasH}
-              selected={selectedItem}
               zoom={zoom}
-              editingItemId={editingItemId}
               placingActive={nodeAddOpen}
-              zoneAddActive={
-                zoneAddOpen || (nodeAddType === 'cctv' && nodeAddStage === 'fov') || !!editingCctvId
-              }
-              onZoneDraftChange={setZoneDraftRect}
-              onZoneDragEnd={handleZoneDragEnd}
-              isZoneDragging={isZoneDragging}
-              onZoneDraggingChange={setIsZoneDragging}
-              savedZones={zones}
-              structureNodes={structureNodes}
-              editingStructureId={editingStructureId}
-              onStructureNodeMove={handleStructureNodeMove}
-              onStructureNodeMoveEnd={handleStructureNodeMoveEnd}
-              graphNodes={graphNodes}
-              graphEdges={graphEdges}
-              edgeAddActive={edgeAddOpen && !edgeChainReviewOpen}
-              onNodeClickForEdge={handleEdgeNodeClick}
-              edgeChainNodeIds={edgeChainNodeIds}
-              selectedEdgeId={selectedEdgeId}
-              onEdgeSelect={setSelectedEdgeId}
-              onEdgeDelete={handleEdgeDelete}
-              selectedZoneRef={selectedZoneRef}
-              onZoneRefSelect={handleZoneRefSelectFromMap}
-              cctvGridCellsMode={cctvGridCellsMode}
-              floorGridCells={floorGridCells}
-              selectedGridCellIds={selectedGridCellIds}
-              gridCellPxSize={gridCellPxSize}
-              onGridCellToggle={handleGridCellToggle}
-              lightPreviewNodeId={lightPreviewSource?.decisionNodeId}
-              lightPreviewLeftEdgeId={lightPreviewSource?.leftEdgeId}
-              lightPreviewRightEdgeId={lightPreviewSource?.rightEdgeId}
-              lightPickField={currentLightPickField}
-              onLightPick={handleLightCanvasPick}
-              stagedCameraPosition={nodeStagedPosition}
-              onSelectDevice={(d) => {
-                const isSame = selectedItem?.kind === 'device' && selectedItem.data.id === d.id;
-                if (!isSame) setDevicePanelOpenOverride(true);
-                setSelectedItem(isSame ? null : { kind: 'device', data: d });
-                setSelectedZoneRef(null);
-                // 엣지를 선택해둔 채로 장비를 고르면 엣지 강조가 그대로 남아있던 문제 —
-                // 포커스는 하나만 유지되게 함
-                setSelectedEdgeId(null);
-                // 지금 하위 필터에 가려져 있어도 이 장비 카드가 패널에 드러나도록 그 종류로 이동
-                // (다른 칩은 정리 — 안 그러면 이 종류가 아직 안 켜져 있을 때 여전히 숨어 있음)
-                setTopFilter((prev) => (prev === 'zone' ? 'all' : prev));
-                const chip = deviceTypeToFilterChip(d.type);
-                setDeviceTypeFilter(chip ? [chip] : []);
-              }}
-              onMapClick={handleMapClick}
-              onBackgroundClick={() => {
-                setSelectedItem(null);
-                setSelectedZoneRef(null);
-                setSelectedEdgeId(null);
-              }}
-              devicePositions={devicePositions}
-              onDeviceMoved={handleDeviceMoved}
-              addedDevices={addedDevices}
-              onUpload={openUploadModal}
               editingLocked={editingLocked}
-              editingLockHintId={EDITING_LOCK_HINT_ID}
-              routeDiagnosisHighlight={routeDiagnosisHighlight}
+              onMapClick={handleMapClick}
+              onBackgroundClick={handleBackgroundClick}
+              onUpload={openUploadModal}
+              devices={{
+                addedDevices,
+                devicePositions,
+                selected: selectedItem,
+                editingItemId,
+                stagedCameraPosition: nodeStagedPosition,
+                onSelectDevice: handleSelectDevice,
+                onDeviceMoved: handleDeviceMoved,
+              }}
+              zoneDrag={{
+                zoneAddActive:
+                  zoneAddOpen ||
+                  (nodeAddType === 'cctv' && nodeAddStage === 'fov') ||
+                  !!editingCctvId,
+                isZoneDragging,
+                onZoneDraftChange: setZoneDraftRect,
+                onZoneDragEnd: handleZoneDragEnd,
+                onZoneDraggingChange: setIsZoneDragging,
+              }}
+              graph={{
+                savedZones: zones,
+                structureNodes,
+                editingStructureId,
+                onStructureNodeMove: handleStructureNodeMove,
+                onStructureNodeMoveEnd: handleStructureNodeMoveEnd,
+                graphNodes,
+                graphEdges,
+                edgeAddActive: edgeAddOpen && !edgeChainReviewOpen,
+                onNodeClickForEdge: handleEdgeNodeClick,
+                edgeChainNodeIds,
+                selectedEdgeId,
+                onEdgeSelect: setSelectedEdgeId,
+                onEdgeDelete: handleEdgeDelete,
+                selectedZoneRef,
+                onZoneRefSelect: handleZoneRefSelectFromMap,
+                routeDiagnosisHighlight,
+              }}
+              grid={{
+                cctvGridCellsMode,
+                floorGridCells,
+                selectedGridCellIds,
+                gridCellPxSize,
+                onGridCellToggle: handleGridCellToggle,
+              }}
+              lightPick={{
+                lightPreviewNodeId: lightPreviewSource?.decisionNodeId,
+                lightPreviewLeftEdgeId: lightPreviewSource?.leftEdgeId,
+                lightPreviewRightEdgeId: lightPreviewSource?.rightEdgeId,
+                lightPickField: currentLightPickField,
+                onLightPick: handleLightCanvasPick,
+              }}
             />
           ) : (
             <LoadingState message="도면을 불러오는 중..." />
@@ -1100,12 +1147,7 @@ const FloorPlansDetailPage = () => {
                   }
                   startCandidatePending={startCandidatePendingIds.has(n.id)}
                   editingLocked={editingLocked}
-                  editingLockHintId={EDITING_LOCK_HINT_ID}
-                  onSelect={(id) => handleZoneRefSelect({ kind: 'node', id })}
-                  onToggleFinalExit={handleToggleFinalExit}
-                  onToggleStartCandidate={handleToggleStartCandidate}
-                  onStartEdit={handleStartEditStructure}
-                  onDelete={handleStructureNodeDelete}
+                  actions={structureNodeCardActions}
                 />
               ))}
 
@@ -1118,20 +1160,15 @@ const FloorPlansDetailPage = () => {
                   editForm={editForm}
                   hasChanges={isDeviceEditFormDirty}
                   editingLocked={editingLocked}
-                  editingLockHintId={EDITING_LOCK_HINT_ID}
                   onEditFormChange={setEditForm}
-                  onSelect={handlePanelItemSelect}
-                  onStartEdit={handleStartEdit}
-                  onSaveEdit={handleSaveEdit}
-                  onCancelEdit={handleCancelEdit}
-                  onDelete={handlePanelItemDelete}
-                  onToggleEnabled={handleToggleEnabled}
-                  onEditCctvCells={handleStartEditCctvCells}
-                  lightNodeOptions={lightNodeOptions}
-                  lightEdgeOptions={lightEdgeOptions}
-                  lightCctvOptions={lightCctvOptions}
-                  lightPickField={editingItemId === item.id ? editLightPickField : null}
-                  onStartLightPick={(field) => handleStartLightPick('edit', field)}
+                  actions={deviceCardActions}
+                  light={{
+                    lightNodeOptions,
+                    lightEdgeOptions,
+                    lightCctvOptions,
+                    lightPickField: editingItemId === item.id ? editLightPickField : null,
+                    onStartLightPick: (field) => handleStartLightPick('edit', field),
+                  }}
                 />
               ))}
 
@@ -1155,12 +1192,8 @@ const FloorPlansDetailPage = () => {
                   editLabel={zoneEditLabel}
                   draftCellCount={zoneDraftCellIds.length}
                   editingLocked={editingLocked}
-                  editingLockHintId={EDITING_LOCK_HINT_ID}
                   onEditLabelChange={setZoneEditLabel}
-                  onSelect={(id) => handleZoneRefSelect({ kind: 'zone', id })}
-                  onStartEdit={handleStartEditZone}
-                  onSaveLabel={handleSaveZoneLabel}
-                  onDelete={handleZoneDeleteRequest}
+                  actions={zoneCardActions}
                 />
               ))}
         </DevicePanel>
