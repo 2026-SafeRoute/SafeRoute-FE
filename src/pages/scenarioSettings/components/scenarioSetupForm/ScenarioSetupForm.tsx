@@ -181,13 +181,15 @@ const ScenarioSetupForm = ({
           />
           <TextField
             label="예상 참가 인원"
-            type="number"
+            inputMode="numeric"
             value={basicInfo.expectedParticipants}
             placeholder="예상 참가 인원을 입력하세요"
             leftIcon={<UsersIcon />}
             readOnly={readOnly}
             disabled={isRunning}
-            onChange={(event) => onBasicInfoChange('expectedParticipants', event.target.value)}
+            onChange={(event) =>
+              onBasicInfoChange('expectedParticipants', event.target.value.replace(/\D/g, ''))
+            }
           />
         </div>
       </section>
