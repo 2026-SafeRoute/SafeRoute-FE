@@ -23,9 +23,7 @@ import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTraini
 import AlertIcon from '@assets/icons/ic-alert.svg?react';
 import CheckIcon from '@assets/icons/ic-check.svg?react';
 import ChevronRightIcon from '@assets/icons/ic-chevron-right.svg?react';
-import EditIcon from '@assets/icons/ic-edit.svg?react';
 import MapIcon from '@assets/icons/ic-map.svg?react';
-import TrashIcon from '@assets/icons/ic-trash.svg?react';
 
 import { Button } from '@components/Button';
 import StatusBadge from '@components/chip/StatusBadge';
@@ -69,10 +67,12 @@ import { createUserZone, deleteUserZone } from './api/userZoneApi';
 import AddActionMenu from './components/AddActionMenu';
 import { canvasPlaceholder } from './components/canvas/canvas.css';
 import FloorCanvas from './components/canvas/FloorCanvas';
-import DeviceCard from './components/DeviceCard';
 import EdgeChainReviewPopup from './components/EdgeChainReviewPopup';
 import NodeAddPopup from './components/NodeAddPopup';
 import NodeTypeLegendInfo from './components/NodeTypeLegendInfo';
+import DeviceCard from './components/panel/DeviceCard';
+import StructureNodeCard from './components/panel/StructureNodeCard';
+import ZoneCard from './components/panel/ZoneCard';
 import ReadinessChecklist from './components/ReadinessChecklist';
 import ZoneAddPopup from './components/ZoneAddPopup';
 import { DEVICE_PLACE_CONFIG } from './constants/devicePlacement';
@@ -81,7 +81,6 @@ import {
   isStructureNodeType,
   STRUCTURE_NODE_API_TYPE,
   STRUCTURE_NODE_LABEL,
-  ZONE_CARD_DOT_CLASS,
 } from './constants/structureNode';
 import * as styles from './FloorPlansDetailPage.css';
 import { useFloorAnalysisPolling } from './hooks/useFloorAnalysisPolling';
@@ -1821,192 +1820,6 @@ const FloorPlansDetailPage = () => {
   const isZoneSelected = (id: string) =>
     selectedZoneRef?.kind === 'zone' && selectedZoneRef.id === id;
 
-  const renderStructureCard = (n: StructureNode) => {
-    const sameTypeIndex = structureNodes
-      .filter((x) => x.type === n.type)
-      .findIndex((x) => x.id === n.id);
-    const isEditing = editingStructureId === n.id;
-    // 탈출구 도달 불가 구조 노드 여부
-    const isDiagnosisUnreachable =
-      isDiagnosisHighlighted && routeDiagnosisQuery.data?.unreachableNodeIds?.includes(n.id);
-    return (
-      <div
-        key={n.id}
-        data-panel-id={n.id}
-        className={clsx(
-          styles.deviceCard,
-          isNodeSelected(n.id) && styles.deviceCardSelected,
-          isDiagnosisUnreachable && styles.deviceCardDiagnosisError,
-        )}
-        onClick={() => handleZoneRefSelect({ kind: 'node', id: n.id })}
-      >
-        <div className={styles.zoneCardHeader}>
-          <span className={styles.zoneCardTitleGroup}>
-            <span
-              className={clsx(
-                styles.zoneCardDot,
-                n.type === 'door' && n.isStartCandidate
-                  ? ZONE_CARD_DOT_CLASS.start
-                  : ZONE_CARD_DOT_CLASS[n.type],
-              )}
-            />
-            <span className={styles.zoneCardTitleText}>
-              <span className={styles.deviceCardName}>
-                {STRUCTURE_NODE_LABEL[n.type]} {sameTypeIndex + 1}
-              </span>
-              {isDiagnosisUnreachable && (
-                <span className={styles.diagnosisCardHint}>출구와 연결 안 됨</span>
-              )}
-            </span>
-          </span>
-          <span className={styles.zoneCardHeaderActions}>
-            {/* 최종 탈출구는 계단에서만 지정 — 문/출입구는 층 내부 통로라 제외 */}
-            {n.type === 'stair' && (
-              <button
-                type="button"
-                className={n.isFinalExit ? styles.finalExitBadge : styles.finalExitToggle}
-                disabled={editingLocked}
-                aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleFinalExit(n.id);
-                }}
-              >
-                {n.isFinalExit ? '최종 탈출구' : '탈출구로 지정'}
-              </button>
-            )}
-            {/* 훈련 시작 후보는 문·출입구 노드에서 지정(BE 정책) */}
-            {n.type === 'door' && (
-              <button
-                type="button"
-                className={n.isStartCandidate ? styles.finalExitBadge : styles.finalExitToggle}
-                disabled={editingLocked || startCandidatePendingIds.has(n.id)}
-                aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleToggleStartCandidate(n.id);
-                }}
-              >
-                {n.isStartCandidate ? '시작 후보' : '시작 후보로 지정'}
-              </button>
-            )}
-            <button
-              type="button"
-              aria-label={isEditing ? '수정 완료' : '수정'}
-              className={isEditing ? styles.zoneCardIconBtnDone : styles.zoneCardIconBtn}
-              disabled={editingLocked}
-              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStartEditStructure(n.id);
-              }}
-            >
-              {isEditing ? (
-                <CheckIcon width={14} height={14} />
-              ) : (
-                <EditIcon width={14} height={14} />
-              )}
-            </button>
-            <button
-              type="button"
-              aria-label="삭제"
-              className={styles.zoneCardIconBtnDelete}
-              disabled={editingLocked}
-              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStructureNodeDelete(n.id);
-              }}
-            >
-              <TrashIcon width={14} height={14} />
-            </button>
-          </span>
-        </div>
-      </div>
-    );
-  };
-
-  const renderZoneCard = (z: ZoneEntry) => {
-    const isEditing = editingZoneId === z.id;
-    return (
-      <div
-        key={z.id}
-        data-panel-id={z.id}
-        className={clsx(styles.deviceCard, isZoneSelected(z.id) && styles.deviceCardSelected)}
-        onClick={() => handleZoneRefSelect({ kind: 'zone', id: z.id })}
-      >
-        <div className={styles.zoneCardHeader}>
-          <span className={styles.zoneCardTitleGroup}>
-            <span className={clsx(styles.zoneCardDot, styles.zoneCardDotGeneral)} />
-            {isEditing ? (
-              <input
-                className={styles.deviceCardNameInput}
-                aria-label="구역 이름"
-                value={zoneEditLabel}
-                disabled={editingLocked}
-                onChange={(e) => setZoneEditLabel(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <span className={styles.deviceCardName}>{z.label}</span>
-            )}
-          </span>
-          <span className={styles.zoneCardHeaderActions}>
-            <button
-              type="button"
-              aria-label={isEditing ? '수정 완료' : '수정'}
-              className={isEditing ? styles.zoneCardIconBtnDone : styles.zoneCardIconBtn}
-              disabled={editingLocked}
-              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isEditing) {
-                  handleSaveZoneLabel(z.id);
-                } else {
-                  handleStartEditZone(z);
-                }
-              }}
-            >
-              {isEditing ? (
-                <CheckIcon width={14} height={14} />
-              ) : (
-                <EditIcon width={14} height={14} />
-              )}
-            </button>
-            <button
-              type="button"
-              aria-label="삭제"
-              className={styles.zoneCardIconBtnDelete}
-              disabled={editingLocked}
-              aria-describedby={editingLocked ? EDITING_LOCK_HINT_ID : undefined}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleZoneDeleteRequest(z);
-              }}
-            >
-              <TrashIcon width={14} height={14} />
-            </button>
-          </span>
-        </div>
-        {/* 감시 영역(CCTV 카드)과 같은 자리·같은 모양 — 수정 중이 아닐 때도 정보를 보여줘서
-            수정 모드로 들어갈 때 카드 규격이 갑자기 늘어나 보이지 않게 함. 수정을 누르면 바로
-            도면 드래그가 켜지므로(handleStartEditZone) 별도 "재설정" 버튼 없이 여기는
-            지금 고른 칸 수만 실시간으로 보여줌 */}
-        <div
-          className={styles.deviceCardRow}
-          title={isEditing ? '도면에서 칸을 클릭하거나 드래그하면 영역이 바로 바뀌어요' : undefined}
-        >
-          <span className={styles.deviceCardKey}>구역 범위</span>
-          {isEditing ? (
-            <span className={styles.deviceCardValue}>{zoneDraftCellIds.length}칸</span>
-          ) : (
-            <span className={styles.deviceCardValue}>{z.cellIds.length}칸</span>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   // 드래그(mousemove)마다 재렌더되는 컴포넌트라, 매 렌더 O(n·m) 재계산을 피하려고 useMemo로 감쌈
   const allPanelItems: PanelItem[] = useMemo(
     () => [
@@ -2963,7 +2776,29 @@ const FloorPlansDetailPage = () => {
             <div className={styles.devicePanelList}>
               {topFilter !== 'zone' && (
                 <>
-                  {visibleStructureNodes.map((n) => renderStructureCard(n))}
+                  {visibleStructureNodes.map((n) => (
+                    <StructureNodeCard
+                      key={n.id}
+                      node={n}
+                      sameTypeIndex={structureNodes
+                        .filter((x) => x.type === n.type)
+                        .findIndex((x) => x.id === n.id)}
+                      selected={isNodeSelected(n.id)}
+                      editing={editingStructureId === n.id}
+                      diagnosisUnreachable={
+                        isDiagnosisHighlighted &&
+                        !!routeDiagnosisQuery.data?.unreachableNodeIds?.includes(n.id)
+                      }
+                      startCandidatePending={startCandidatePendingIds.has(n.id)}
+                      editingLocked={editingLocked}
+                      editingLockHintId={EDITING_LOCK_HINT_ID}
+                      onSelect={(id) => handleZoneRefSelect({ kind: 'node', id })}
+                      onToggleFinalExit={handleToggleFinalExit}
+                      onToggleStartCandidate={handleToggleStartCandidate}
+                      onStartEdit={handleStartEditStructure}
+                      onDelete={handleStructureNodeDelete}
+                    />
+                  ))}
 
                   {panelItems.map((item) => (
                     <DeviceCard
@@ -3000,7 +2835,25 @@ const FloorPlansDetailPage = () => {
               )}
 
               {topFilter !== 'device' &&
-                zones.filter((z) => z.type === 'general').map((z) => renderZoneCard(z))}
+                zones
+                  .filter((z) => z.type === 'general')
+                  .map((z) => (
+                    <ZoneCard
+                      key={z.id}
+                      zone={z}
+                      selected={isZoneSelected(z.id)}
+                      editing={editingZoneId === z.id}
+                      editLabel={zoneEditLabel}
+                      draftCellCount={zoneDraftCellIds.length}
+                      editingLocked={editingLocked}
+                      editingLockHintId={EDITING_LOCK_HINT_ID}
+                      onEditLabelChange={setZoneEditLabel}
+                      onSelect={(id) => handleZoneRefSelect({ kind: 'zone', id })}
+                      onStartEdit={handleStartEditZone}
+                      onSaveLabel={handleSaveZoneLabel}
+                      onDelete={handleZoneDeleteRequest}
+                    />
+                  ))}
             </div>
           </div>
         </aside>

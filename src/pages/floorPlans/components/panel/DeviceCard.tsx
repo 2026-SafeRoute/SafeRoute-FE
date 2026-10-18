@@ -9,12 +9,13 @@ import Dropdown from '@components/dropdown';
 
 import { formatAreaM2 } from '@utils/format';
 
-import LightPickField from './LightPickField';
-import * as styles from '../FloorPlansDetailPage.css';
-import { getLightPickHint } from '../utils/lightPick';
+import * as styles from './panelCard.css';
+import * as popupStyles from '../../FloorPlansDetailPage.css';
+import { getLightPickHint } from '../../utils/lightPick';
+import LightPickField from '../LightPickField';
 
-import type { DeviceEditForm, PanelItem } from '../types/panelItem';
-import type { LightPickFieldName } from '../utils/lightPick';
+import type { DeviceEditForm, PanelItem } from '../../types/panelItem';
+import type { LightPickFieldName } from '../../utils/lightPick';
 
 interface DeviceCardProps {
   item: PanelItem;
@@ -230,8 +231,8 @@ const DeviceCard = ({
                 return (
                   <span
                     className={clsx(
-                      styles.nodeAddHint,
-                      lightPickHint.isWarning && styles.nodeAddHintWarning,
+                      popupStyles.nodeAddHint,
+                      lightPickHint.isWarning && popupStyles.nodeAddHintWarning,
                     )}
                   >
                     {lightPickHint.text}
