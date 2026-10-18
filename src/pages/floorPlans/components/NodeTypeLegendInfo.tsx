@@ -7,7 +7,7 @@ import TriangleIcon from '@assets/icons/ic-triangle.svg?react';
 
 import useClickOutside from '@hooks/useClickOutside';
 
-import * as styles from '../FloorPlansDetailPage.css';
+import * as styles from './NodeTypeLegendInfo.css';
 
 /* ── 노드/구역 종류 안내 — 인포 아이콘을 눌렀을 때만 팝오버로 보여주고 바깥을 클릭하면 닫힘
    (항상 떠 있는 범례가 도면을 가린다는 피드백을 받아 지도 툴들에서 흔한 "on-demand 팝오버"

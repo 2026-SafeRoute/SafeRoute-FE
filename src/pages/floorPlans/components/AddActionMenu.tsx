@@ -5,7 +5,7 @@ import PlusIcon from '@assets/icons/ic-plus.svg?react';
 
 import useClickOutside from '@hooks/useClickOutside';
 
-import * as styles from '../FloorPlansDetailPage.css';
+import * as styles from './AddActionMenu.css';
 
 interface AddActionMenuProps {
   disabled?: boolean;
