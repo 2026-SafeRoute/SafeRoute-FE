@@ -1,33 +1,28 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useQueryClient } from '@tanstack/react-query';
-import clsx from 'clsx';
 import { useNavigate, useParams } from 'react-router';
 
 import { floorQueryKeys } from '@apis/floors/floorQueries';
 import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
 import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTrainingSessionsQuery';
 
-import AlertIcon from '@assets/icons/ic-alert.svg?react';
-import CheckIcon from '@assets/icons/ic-check.svg?react';
-import ChevronRightIcon from '@assets/icons/ic-chevron-right.svg?react';
 import MapIcon from '@assets/icons/ic-map.svg?react';
 
-import { Button } from '@components/Button';
-import StatusBadge from '@components/chip/StatusBadge';
 import EmptyState from '@components/empty';
 import LoadingState from '@components/loadingState';
 
 import { interactivePanelBreakpoints } from '@styles/responsive.css';
 
-import { formatFloor, hasFloorPlan } from '@utils/floor';
 import { CANVAS_W } from '@utils/floorCanvas';
 
 import AddActionMenu from './components/AddActionMenu';
 import { canvasPlaceholder } from './components/canvas/canvas.css';
 import FloorCanvas from './components/canvas/FloorCanvas';
-import NodeTypeLegendInfo from './components/NodeTypeLegendInfo';
+import FloorCanvasSection from './components/canvas/FloorCanvasSection';
+import FloorSidebar from './components/FloorSidebar';
 import DeviceCard from './components/panel/DeviceCard';
+import DevicePanel from './components/panel/DevicePanel';
 import StructureNodeCard from './components/panel/StructureNodeCard';
 import ZoneCard from './components/panel/ZoneCard';
 import EdgeChainPopup from './components/popups/EdgeChainPopup';
@@ -862,513 +857,313 @@ const FloorPlansDetailPage = () => {
     <>
       <div ref={layoutRef} className={styles.layout}>
         {/* ── 좌측 사이드바 ── */}
-        <aside className={styles.sidebar}>
-          <div className={styles.sidebarInner} style={{ padding: '2rem 2rem 2.4rem' }}>
-            <div
-              id={EDITING_LOCK_HINT_ID}
-              className={editingLocked ? styles.editingLockNotice : undefined}
-              role="status"
-            >
-              {editingLocked
-                ? isRunningSessionsPending
-                  ? '훈련 진행 여부를 확인하는 동안 도면 편집을 잠시 사용할 수 없습니다.'
-                  : '훈련 진행 중에는 도면·노드·구역·기기 설정을 변경할 수 없습니다. 기기 활성화·비활성화는 계속 사용할 수 있습니다.'
-                : ''}
-            </div>
-
-            {/* 층 목록 */}
-            <div className={styles.floorNavCard}>
-              <div className={styles.floorNavHeader}>층 목록</div>
-              <div className={styles.floorNavList}>
-                {[...(currentBuilding?.floors ?? [])]
-                  .sort((a, b) => b.floorNum - a.floorNum)
-                  .map((f) => {
-                    const isCurrent = f.id === selectedFloorId;
-                    const isNone = !hasFloorPlan(f);
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        className={clsx(
-                          styles.floorNavItem,
-                          isCurrent && styles.floorNavItemActive,
-                        )}
-                        onClick={() => handleFloorChange(f.id)}
-                      >
-                        <span>{formatFloor(f.floorNum)}</span>
-                        {isNone && <StatusBadge label="미등록" color="neutral" />}
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* 훈련 준비 체크리스트 — 시작 노드·최종 탈출구가 없으면 시나리오 재생이 안 되는데
-                그동안 눈에 띄는 안내가 없었음. 층 목록 바로 아래, 도면 편집을 시작하기 전에
-                가장 먼저 보이는 자리에 둠.
-                상태는 currentFloor(목록 캐시)가 아니라 실시간으로 폴링되는 상세 조회(floor)를
-                우선으로 봄 — 업로드 후 분석이 끝나도 목록 캐시는 안 갱신돼서 체크리스트만
-                새로고침 전엔 안 뜨던 문제. 캔버스도 아래에서 resolvedFloor로 판단함 */}
-            {resolvedFloor?.segmentationStatus === 'DONE' && (
-              <ReadinessChecklist
-                hasStartNode={structureNodes.some((n) => n.type === 'start' || n.isStartCandidate)}
-                hasFinalExit={structureNodes.some((n) => n.isFinalExit)}
-                hasStair={structureNodes.some((n) => n.type === 'stair')}
-                hasRouteToExit={hasRouteFromStartToExit}
-                routeDiagnosis={routeDiagnosisQuery.isError ? undefined : routeDiagnosisQuery.data}
-                isDiagnosisHighlighted={isDiagnosisHighlighted}
-                editingLocked={editingLocked}
-                editingLockHintId={EDITING_LOCK_HINT_ID}
-                onAddStartNode={() => {
-                  // 시작 후보는 문·출입구 카드에서 지정 — 해당 필터로 이동
-                  setTopFilter('device');
-                  setDeviceTypeFilter(['door']);
-                }}
-                onAddStair={() => handleOpenNodeAdd('stair')}
-                onFocusDeviceCards={() => {
-                  setTopFilter('device');
-                  setDeviceTypeFilter([]);
-                }}
-                onConnectEdges={handleOpenEdgeAdd}
-                onToggleDiagnosisHighlight={toggleDiagnosisHighlight}
-              />
-            )}
-
-            {/* 노드/구역/엣지 추가 · 그리드 설정 · 감시영역 재선택 팝업 — 예전엔 캔버스 위에
-                떠 있어서 도면을 가려 그 밑을 클릭할 수 없었음. 도면을 보면서 동시에 입력할 수
-                있어야 하는 흐름이라, 캔버스와 겹치지 않는 이 사이드바로 옮김 */}
-            {gridSetupPromptOpen && (
-              <GridSetupPopup
-                cellSizeCm={gridSizeCmInput}
-                onCellSizeChange={setGridSizeCmInput}
-                onCancel={handleGridSetupPromptCancel}
-                onConfirm={handleGridSetupPromptConfirm}
-              />
-            )}
-
-            {edgeAddOpen && (
-              <EdgeChainPopup
-                nodeLabels={edgeChainNodeIds.map((id) => getGraphNodeLabel(id))}
-                reviewing={edgeChainReviewOpen}
-                segments={edgeChainSegments}
-                onClear={handleClearEdgeChain}
-                onNext={handleProceedToEdgeChainReview}
-                onCancel={handleExitEdgeMode}
-                onBack={handleBackFromEdgeChainReview}
-                onSubmit={handleSubmitEdgeChain}
-              />
-            )}
-
-            {editingCctvId && (
-              <SidebarPopup
-                title="감시 영역 재선택"
-                hint={`도면에서 칸을 클릭하거나 드래그해서 감시 영역을 다시 선택해주세요. ${cctvDraftCellIds.length}칸 선택됨.`}
-                actions={[
-                  { label: '취소', variant: 'cancel', onClick: handleCancelEditCctvCells },
-                  {
-                    label: '저장',
-                    variant: 'submit',
-                    disabled: cctvDraftCellIds.length === 0,
-                    onClick: handleSaveEditCctvCells,
-                  },
-                ]}
-              />
-            )}
-
-            {nodeAddOpen && !gridSetupPromptOpen && (
-              <NodeAddPopup
-                type={nodeAddType}
-                onTypeChange={setNodeAddType}
-                stage={nodeAddStage}
-                hasPosition={!!nodeStagedPosition}
-                selectedCellCount={cctvDraftCellIds.length}
-                onCancel={handleCancelNodeAdd}
-                onBack={handleNodeAddBack}
-                onSubmitEntry={handleSubmitNodeEntry}
-                onFinalize={handleFinalizeFov}
-                lightNodeOptions={lightNodeOptions}
-                lightEdgeOptions={lightEdgeOptions}
-                lightCctvOptions={lightCctvOptions}
-                lightFields={nodeAddLightFields}
-                onLightFieldsChange={setNodeAddLightFields}
-                lightPickField={nodeAddLightPickField}
-                onStartLightPick={(field) => handleStartLightPick('add', field)}
-              />
-            )}
-
-            {/* 기존 구역 수정(zoneResetTargetId)은 팝업 없이 카드에서 이름을, 도면에서 칸을
-                바로 편집함 — 이 팝업은 "새 구역 추가"에만 씀(이름을 받을 카드가 아직 없어서
-                여전히 필요함) */}
-            {zoneAddOpen && !zoneResetTargetId && (
-              <ZoneAddPopup
-                selectedCellCount={zoneDraftCellIds.length}
-                onCancel={() => setZoneAddOpen(false)}
-                onSave={handleAddZone}
-              />
-            )}
-          </div>
-        </aside>
-
-        {/* ── 중앙 캔버스 ── */}
-        <div className={styles.canvasArea}>
-          {currentFloor && (
-            <div className={styles.canvasHeader}>
-              <button
-                type="button"
-                className={styles.backButton}
-                onClick={() => navigate('/floorPlans')}
-                aria-label="도면 관리 목록으로"
-              >
-                <ChevronRightIcon width={16} height={16} className={styles.backButtonIcon} />
-              </button>
-              <span className={styles.canvasHeaderText}>{currentBuilding?.name ?? ''}</span>
-              <span className={styles.canvasHeaderFloor}>{formatFloor(currentFloor.floorNum)}</span>
-            </div>
+        <FloorSidebar
+          editingLocked={editingLocked}
+          isRunningSessionsPending={isRunningSessionsPending}
+          floors={currentBuilding?.floors ?? []}
+          selectedFloorId={selectedFloorId}
+          onFloorChange={handleFloorChange}
+        >
+          {/* 훈련 준비 체크리스트 — 시작 노드·최종 탈출구가 없으면 시나리오 재생이 안 되는데
+             그동안 눈에 띄는 안내가 없었음. 층 목록 바로 아래, 도면 편집을 시작하기 전에
+             가장 먼저 보이는 자리에 둠.
+             상태는 currentFloor(목록 캐시)가 아니라 실시간으로 폴링되는 상세 조회(floor)를
+             우선으로 봄 — 업로드 후 분석이 끝나도 목록 캐시는 안 갱신돼서 체크리스트만
+             새로고침 전엔 안 뜨던 문제. 캔버스도 아래에서 resolvedFloor로 판단함 */}
+          {resolvedFloor?.segmentationStatus === 'DONE' && (
+            <ReadinessChecklist
+              hasStartNode={structureNodes.some((n) => n.type === 'start' || n.isStartCandidate)}
+              hasFinalExit={structureNodes.some((n) => n.isFinalExit)}
+              hasStair={structureNodes.some((n) => n.type === 'stair')}
+              hasRouteToExit={hasRouteFromStartToExit}
+              routeDiagnosis={routeDiagnosisQuery.isError ? undefined : routeDiagnosisQuery.data}
+              isDiagnosisHighlighted={isDiagnosisHighlighted}
+              editingLocked={editingLocked}
+              editingLockHintId={EDITING_LOCK_HINT_ID}
+              onAddStartNode={() => {
+                // 시작 후보는 문·출입구 카드에서 지정 — 해당 필터로 이동
+                setTopFilter('device');
+                setDeviceTypeFilter(['door']);
+              }}
+              onAddStair={() => handleOpenNodeAdd('stair')}
+              onFocusDeviceCards={() => {
+                setTopFilter('device');
+                setDeviceTypeFilter([]);
+              }}
+              onConnectEdges={handleOpenEdgeAdd}
+              onToggleDiagnosisHighlight={toggleDiagnosisHighlight}
+            />
           )}
 
-          <div
-            className={clsx(
-              styles.canvasBody,
-              currentFloor?.segmentationStatus === 'DONE' && styles.canvasBodyWithActions,
-            )}
-          >
-            {/* 그리드는 이제 토글 없이 항상 표시함(아래 ensureFloorGridCells 자동 조회 효과 참고) */}
-            {currentFloor?.segmentationStatus === 'DONE' && (
-              <div className={styles.canvasTopRightRow}>
-                <AddActionMenu
-                  disabled={editingLocked}
-                  disabledHintId={EDITING_LOCK_HINT_ID}
-                  onAddNode={() => handleOpenNodeAdd()}
-                  onAddZone={handleToggleZoneAdd}
-                  onAddEdge={handleOpenEdgeAdd}
-                />
-              </div>
-            )}
+          {/* 노드/구역/엣지 추가 · 그리드 설정 · 감시영역 재선택 팝업 — 예전엔 캔버스 위에
+             떠 있어서 도면을 가려 그 밑을 클릭할 수 없었음. 도면을 보면서 동시에 입력할 수
+             있어야 하는 흐름이라, 캔버스와 겹치지 않는 이 사이드바로 옮김 */}
+          {gridSetupPromptOpen && (
+            <GridSetupPopup
+              cellSizeCm={gridSizeCmInput}
+              onCellSizeChange={setGridSizeCmInput}
+              onCancel={handleGridSetupPromptCancel}
+              onConfirm={handleGridSetupPromptConfirm}
+            />
+          )}
 
-            {(routeDiagnosisQuery.data?.ready === true ||
-              (isDiagnosisHighlighted && routeDiagnosisQuery.data?.ready === false)) && (
-              <div
-                className={styles.canvasDiagnosisAlert({
-                  tone: routeDiagnosisQuery.data.ready ? 'success' : 'danger',
-                })}
-                role={routeDiagnosisQuery.data.ready ? 'status' : 'alert'}
-              >
-                <span
-                  className={styles.canvasDiagnosisAlertIcon({
-                    tone: routeDiagnosisQuery.data.ready ? 'success' : 'danger',
-                  })}
-                  aria-hidden="true"
-                >
-                  {routeDiagnosisQuery.data.ready ? (
-                    <CheckIcon width={12} height={12} />
-                  ) : (
-                    <AlertIcon width={12} height={12} />
-                  )}
-                </span>
-                <span className={styles.canvasDiagnosisAlertMessage}>
-                  {routeDiagnosisQuery.data.ready
-                    ? '모든 시작 후보가 2곳 이상의 탈출구와 연결되어 있어요.'
-                    : '빨간색 노드는 탈출구로 이어지는 경로가 없어요. 가까운 노드와 엣지로 연결해 주세요.'}
-                </span>
-              </div>
-            )}
+          {edgeAddOpen && (
+            <EdgeChainPopup
+              nodeLabels={edgeChainNodeIds.map((id) => getGraphNodeLabel(id))}
+              reviewing={edgeChainReviewOpen}
+              segments={edgeChainSegments}
+              onClear={handleClearEdgeChain}
+              onNext={handleProceedToEdgeChainReview}
+              onCancel={handleExitEdgeMode}
+              onBack={handleBackFromEdgeChainReview}
+              onSubmit={handleSubmitEdgeChain}
+            />
+          )}
 
-            <div className={styles.canvasScrollArea}>
-              {floorDetailQuery.isError && !currentFloor ? (
-                // 실제로 없는 층(404 등)일 때만 안내. 목록 캐시에 아직 안 들어온 층을 직접
-                // 열었거나 방금 만든 직후엔 잠깐 둘 다 비어 있을 수 있어, 그 사이엔 로딩만 보여줌
-                <EmptyState
-                  className={canvasPlaceholder}
-                  size="compact"
-                  icon={<MapIcon />}
-                  title="층 정보를 찾을 수 없습니다"
-                />
-              ) : resolvedFloor ? (
-                <FloorCanvas
-                  mapWrapRef={mapWrapRef}
-                  floor={resolvedFloor}
-                  resolvedImageUrl={resolvedMapImageUrl}
-                  canvasH={canvasH}
-                  selected={selectedItem}
-                  zoom={zoom}
-                  editingItemId={editingItemId}
-                  placingActive={nodeAddOpen}
-                  zoneAddActive={
-                    zoneAddOpen ||
-                    (nodeAddType === 'cctv' && nodeAddStage === 'fov') ||
-                    !!editingCctvId
-                  }
-                  onZoneDraftChange={setZoneDraftRect}
-                  onZoneDragEnd={handleZoneDragEnd}
-                  isZoneDragging={isZoneDragging}
-                  onZoneDraggingChange={setIsZoneDragging}
-                  savedZones={zones}
-                  structureNodes={structureNodes}
-                  editingStructureId={editingStructureId}
-                  onStructureNodeMove={handleStructureNodeMove}
-                  onStructureNodeMoveEnd={handleStructureNodeMoveEnd}
-                  graphNodes={graphNodes}
-                  graphEdges={graphEdges}
-                  edgeAddActive={edgeAddOpen && !edgeChainReviewOpen}
-                  onNodeClickForEdge={handleEdgeNodeClick}
-                  edgeChainNodeIds={edgeChainNodeIds}
-                  selectedEdgeId={selectedEdgeId}
-                  onEdgeSelect={setSelectedEdgeId}
-                  onEdgeDelete={handleEdgeDelete}
-                  selectedZoneRef={selectedZoneRef}
-                  onZoneRefSelect={handleZoneRefSelectFromMap}
-                  cctvGridCellsMode={cctvGridCellsMode}
-                  floorGridCells={floorGridCells}
-                  selectedGridCellIds={selectedGridCellIds}
-                  gridCellPxSize={gridCellPxSize}
-                  onGridCellToggle={handleGridCellToggle}
-                  lightPreviewNodeId={lightPreviewSource?.decisionNodeId}
-                  lightPreviewLeftEdgeId={lightPreviewSource?.leftEdgeId}
-                  lightPreviewRightEdgeId={lightPreviewSource?.rightEdgeId}
-                  lightPickField={currentLightPickField}
-                  onLightPick={handleLightCanvasPick}
-                  stagedCameraPosition={nodeStagedPosition}
-                  onSelectDevice={(d) => {
-                    const isSame = selectedItem?.kind === 'device' && selectedItem.data.id === d.id;
-                    if (!isSame) setDevicePanelOpenOverride(true);
-                    setSelectedItem(isSame ? null : { kind: 'device', data: d });
-                    setSelectedZoneRef(null);
-                    // 엣지를 선택해둔 채로 장비를 고르면 엣지 강조가 그대로 남아있던 문제 —
-                    // 포커스는 하나만 유지되게 함
-                    setSelectedEdgeId(null);
-                    // 지금 하위 필터에 가려져 있어도 이 장비 카드가 패널에 드러나도록 그 종류로 이동
-                    // (다른 칩은 정리 — 안 그러면 이 종류가 아직 안 켜져 있을 때 여전히 숨어 있음)
-                    setTopFilter((prev) => (prev === 'zone' ? 'all' : prev));
-                    const chip = deviceTypeToFilterChip(d.type);
-                    setDeviceTypeFilter(chip ? [chip] : []);
-                  }}
-                  onMapClick={handleMapClick}
-                  onBackgroundClick={() => {
-                    setSelectedItem(null);
-                    setSelectedZoneRef(null);
-                    setSelectedEdgeId(null);
-                  }}
-                  devicePositions={devicePositions}
-                  onDeviceMoved={handleDeviceMoved}
-                  addedDevices={addedDevices}
-                  onUpload={openUploadModal}
-                  editingLocked={editingLocked}
-                  editingLockHintId={EDITING_LOCK_HINT_ID}
-                  routeDiagnosisHighlight={routeDiagnosisHighlight}
-                />
-              ) : (
-                <LoadingState message="도면을 불러오는 중..." />
-              )}
-            </div>
-          </div>
+          {editingCctvId && (
+            <SidebarPopup
+              title="감시 영역 재선택"
+              hint={`도면에서 칸을 클릭하거나 드래그해서 감시 영역을 다시 선택해주세요. ${cctvDraftCellIds.length}칸 선택됨.`}
+              actions={[
+                { label: '취소', variant: 'cancel', onClick: handleCancelEditCctvCells },
+                {
+                  label: '저장',
+                  variant: 'submit',
+                  disabled: cctvDraftCellIds.length === 0,
+                  onClick: handleSaveEditCctvCells,
+                },
+              ]}
+            />
+          )}
 
-          {/* 캔버스 우하단 — 범례 정보 아이콘을 줌 컨트롤 바로 위에 세로로 쌓음 */}
-          <div className={styles.canvasBottomRightColumn}>
-            {currentFloor?.segmentationStatus === 'DONE' && (
-              <NodeTypeLegendInfo diagnosisVisible={isDiagnosisHighlighted} />
-            )}
-            <div className={styles.canvasZoomFloat}>
-              <button
-                type="button"
-                className={styles.zoomButton}
-                onClick={() => setZoom((v) => Math.max(50, v - 10))}
-                disabled={zoom <= 50}
-                aria-label="축소"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                className={zoom !== 100 ? styles.zoomValueClickable : styles.zoomValue}
-                onClick={() => setZoom(100)}
-                title={zoom !== 100 ? '클릭해서 100% 리셋' : undefined}
-              >
-                {zoom}%
-              </button>
-              <button
-                type="button"
-                className={styles.zoomButton}
-                onClick={() => setZoom((v) => Math.min(200, v + 10))}
-                disabled={zoom >= 200}
-                aria-label="확대"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        </div>
+          {nodeAddOpen && !gridSetupPromptOpen && (
+            <NodeAddPopup
+              type={nodeAddType}
+              onTypeChange={setNodeAddType}
+              stage={nodeAddStage}
+              hasPosition={!!nodeStagedPosition}
+              selectedCellCount={cctvDraftCellIds.length}
+              onCancel={handleCancelNodeAdd}
+              onBack={handleNodeAddBack}
+              onSubmitEntry={handleSubmitNodeEntry}
+              onFinalize={handleFinalizeFov}
+              lightNodeOptions={lightNodeOptions}
+              lightEdgeOptions={lightEdgeOptions}
+              lightCctvOptions={lightCctvOptions}
+              lightFields={nodeAddLightFields}
+              onLightFieldsChange={setNodeAddLightFields}
+              lightPickField={nodeAddLightPickField}
+              onStartLightPick={(field) => handleStartLightPick('add', field)}
+            />
+          )}
+
+          {/* 기존 구역 수정(zoneResetTargetId)은 팝업 없이 카드에서 이름을, 도면에서 칸을
+             바로 편집함 — 이 팝업은 "새 구역 추가"에만 씀(이름을 받을 카드가 아직 없어서
+             여전히 필요함) */}
+          {zoneAddOpen && !zoneResetTargetId && (
+            <ZoneAddPopup
+              selectedCellCount={zoneDraftCellIds.length}
+              onCancel={() => setZoneAddOpen(false)}
+              onSave={handleAddZone}
+            />
+          )}
+        </FloorSidebar>
+
+        {/* ── 중앙 캔버스 ── */}
+        <FloorCanvasSection
+          currentFloor={currentFloor}
+          buildingName={currentBuilding?.name ?? ''}
+          onBack={() => navigate('/floorPlans')}
+          addMenu={
+            <AddActionMenu
+              disabled={editingLocked}
+              disabledHintId={EDITING_LOCK_HINT_ID}
+              onAddNode={() => handleOpenNodeAdd()}
+              onAddZone={handleToggleZoneAdd}
+              onAddEdge={handleOpenEdgeAdd}
+            />
+          }
+          diagnosisReady={routeDiagnosisQuery.data?.ready}
+          isDiagnosisHighlighted={isDiagnosisHighlighted}
+          zoom={zoom}
+          onZoomChange={setZoom}
+        >
+          {floorDetailQuery.isError && !currentFloor ? (
+            // 실제로 없는 층(404 등)일 때만 안내. 목록 캐시에 아직 안 들어온 층을 직접
+            // 열었거나 방금 만든 직후엔 잠깐 둘 다 비어 있을 수 있어, 그 사이엔 로딩만 보여줌
+            <EmptyState
+              className={canvasPlaceholder}
+              size="compact"
+              icon={<MapIcon />}
+              title="층 정보를 찾을 수 없습니다"
+            />
+          ) : resolvedFloor ? (
+            <FloorCanvas
+              mapWrapRef={mapWrapRef}
+              floor={resolvedFloor}
+              resolvedImageUrl={resolvedMapImageUrl}
+              canvasH={canvasH}
+              selected={selectedItem}
+              zoom={zoom}
+              editingItemId={editingItemId}
+              placingActive={nodeAddOpen}
+              zoneAddActive={
+                zoneAddOpen || (nodeAddType === 'cctv' && nodeAddStage === 'fov') || !!editingCctvId
+              }
+              onZoneDraftChange={setZoneDraftRect}
+              onZoneDragEnd={handleZoneDragEnd}
+              isZoneDragging={isZoneDragging}
+              onZoneDraggingChange={setIsZoneDragging}
+              savedZones={zones}
+              structureNodes={structureNodes}
+              editingStructureId={editingStructureId}
+              onStructureNodeMove={handleStructureNodeMove}
+              onStructureNodeMoveEnd={handleStructureNodeMoveEnd}
+              graphNodes={graphNodes}
+              graphEdges={graphEdges}
+              edgeAddActive={edgeAddOpen && !edgeChainReviewOpen}
+              onNodeClickForEdge={handleEdgeNodeClick}
+              edgeChainNodeIds={edgeChainNodeIds}
+              selectedEdgeId={selectedEdgeId}
+              onEdgeSelect={setSelectedEdgeId}
+              onEdgeDelete={handleEdgeDelete}
+              selectedZoneRef={selectedZoneRef}
+              onZoneRefSelect={handleZoneRefSelectFromMap}
+              cctvGridCellsMode={cctvGridCellsMode}
+              floorGridCells={floorGridCells}
+              selectedGridCellIds={selectedGridCellIds}
+              gridCellPxSize={gridCellPxSize}
+              onGridCellToggle={handleGridCellToggle}
+              lightPreviewNodeId={lightPreviewSource?.decisionNodeId}
+              lightPreviewLeftEdgeId={lightPreviewSource?.leftEdgeId}
+              lightPreviewRightEdgeId={lightPreviewSource?.rightEdgeId}
+              lightPickField={currentLightPickField}
+              onLightPick={handleLightCanvasPick}
+              stagedCameraPosition={nodeStagedPosition}
+              onSelectDevice={(d) => {
+                const isSame = selectedItem?.kind === 'device' && selectedItem.data.id === d.id;
+                if (!isSame) setDevicePanelOpenOverride(true);
+                setSelectedItem(isSame ? null : { kind: 'device', data: d });
+                setSelectedZoneRef(null);
+                // 엣지를 선택해둔 채로 장비를 고르면 엣지 강조가 그대로 남아있던 문제 —
+                // 포커스는 하나만 유지되게 함
+                setSelectedEdgeId(null);
+                // 지금 하위 필터에 가려져 있어도 이 장비 카드가 패널에 드러나도록 그 종류로 이동
+                // (다른 칩은 정리 — 안 그러면 이 종류가 아직 안 켜져 있을 때 여전히 숨어 있음)
+                setTopFilter((prev) => (prev === 'zone' ? 'all' : prev));
+                const chip = deviceTypeToFilterChip(d.type);
+                setDeviceTypeFilter(chip ? [chip] : []);
+              }}
+              onMapClick={handleMapClick}
+              onBackgroundClick={() => {
+                setSelectedItem(null);
+                setSelectedZoneRef(null);
+                setSelectedEdgeId(null);
+              }}
+              devicePositions={devicePositions}
+              onDeviceMoved={handleDeviceMoved}
+              addedDevices={addedDevices}
+              onUpload={openUploadModal}
+              editingLocked={editingLocked}
+              editingLockHintId={EDITING_LOCK_HINT_ID}
+              routeDiagnosisHighlight={routeDiagnosisHighlight}
+            />
+          ) : (
+            <LoadingState message="도면을 불러오는 중..." />
+          )}
+        </FloorCanvasSection>
 
         {/* ── 우측 장비 목록 패널 ── */}
-        <aside
-          ref={devicePanelRef}
-          className={clsx(styles.devicePanel, !isDevicePanelOpen && styles.devicePanelCollapsed)}
-          aria-label="장비 목록"
+        <DevicePanel
+          panelRef={devicePanelRef}
+          isOpen={isDevicePanelOpen}
+          onOpenChange={setDevicePanelOpenOverride}
+          topFilter={topFilter}
+          onTopFilterChange={setTopFilter}
+          deviceTypeFilter={deviceTypeFilter}
+          onDeviceTypeFilterChange={setDeviceTypeFilter}
         >
-          <div className={styles.devicePanelHeader}>
-            {isDevicePanelOpen && <span className={styles.devicePanelHeading}>장비 목록</span>}
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label={isDevicePanelOpen ? '장비 목록 접기' : '장비 목록 펼치기'}
-              aria-expanded={isDevicePanelOpen}
-              aria-controls="floor-device-panel-content"
-              onClick={() => setDevicePanelOpenOverride(!isDevicePanelOpen)}
-            >
-              <ChevronRightIcon
-                className={isDevicePanelOpen ? undefined : styles.devicePanelToggleExpand}
-              />
-            </Button>
-          </div>
-          <div
-            id="floor-device-panel-content"
-            className={clsx(
-              styles.devicePanelInner,
-              !isDevicePanelOpen && styles.devicePanelInnerHidden,
-            )}
-          >
-            <div className={styles.devicePanelSticky}>
-              <div className={styles.filterTabs}>
-                {(
-                  [
-                    { key: 'all', label: '전체' },
-                    { key: 'device', label: '노드' },
-                    { key: 'zone', label: '구역' },
-                  ] as const
-                ).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={clsx(styles.filterTab, topFilter === key && styles.filterTabActive)}
-                    onClick={() => {
-                      // 유도등 등 하위 필터 칩을 고른 채로 "전체"를 누르면 그 필터가 그대로
-                      // 남아서 전체가 아니라 필터링된 목록만 보이는 문제가 있었음 — 탭을
-                      // 바꿀 때마다 하위 필터도 같이 초기화함
-                      setTopFilter(key);
-                      setDeviceTypeFilter([]);
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+          {topFilter !== 'zone' && (
+            <>
+              {visibleStructureNodes.map((n) => (
+                <StructureNodeCard
+                  key={n.id}
+                  node={n}
+                  sameTypeIndex={structureNodes
+                    .filter((x) => x.type === n.type)
+                    .findIndex((x) => x.id === n.id)}
+                  selected={isNodeSelected(n.id)}
+                  editing={editingStructureId === n.id}
+                  diagnosisUnreachable={
+                    isDiagnosisHighlighted &&
+                    !!routeDiagnosisQuery.data?.unreachableNodeIds?.includes(n.id)
+                  }
+                  startCandidatePending={startCandidatePendingIds.has(n.id)}
+                  editingLocked={editingLocked}
+                  editingLockHintId={EDITING_LOCK_HINT_ID}
+                  onSelect={(id) => handleZoneRefSelect({ kind: 'node', id })}
+                  onToggleFinalExit={handleToggleFinalExit}
+                  onToggleStartCandidate={handleToggleStartCandidate}
+                  onStartEdit={handleStartEditStructure}
+                  onDelete={handleStructureNodeDelete}
+                />
+              ))}
 
-              {topFilter === 'device' && (
-                <div className={styles.subFilterChips}>
-                  {(
-                    [
-                      { key: 'cctv', label: 'CCTV' },
-                      { key: 'light', label: '유도등' },
-                      { key: 'door', label: '문 · 출입구' },
-                      { key: 'stair', label: '계단' },
-                      { key: 'hallway', label: '복도' },
-                      { key: 'start', label: '시작 후보' },
-                    ] as const
-                  ).map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={clsx(
-                        styles.subFilterChip,
-                        deviceTypeFilter.includes(key) && styles.subFilterChipActive,
-                      )}
-                      onClick={() =>
-                        setDeviceTypeFilter((prev) =>
-                          prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-                        )
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+              {panelItems.map((item) => (
+                <DeviceCard
+                  key={item.id}
+                  item={item}
+                  selected={isPanelItemSelected(item)}
+                  editing={editingItemId === item.id}
+                  editForm={editForm}
+                  hasChanges={isDeviceEditFormDirty}
+                  editingLocked={editingLocked}
+                  editingLockHintId={EDITING_LOCK_HINT_ID}
+                  onEditFormChange={setEditForm}
+                  onSelect={handlePanelItemSelect}
+                  onStartEdit={handleStartEdit}
+                  onSaveEdit={handleSaveEdit}
+                  onCancelEdit={handleCancelEdit}
+                  onDelete={handlePanelItemDelete}
+                  onToggleEnabled={handleToggleEnabled}
+                  onEditCctvCells={handleStartEditCctvCells}
+                  lightNodeOptions={lightNodeOptions}
+                  lightEdgeOptions={lightEdgeOptions}
+                  lightCctvOptions={lightCctvOptions}
+                  lightPickField={editingItemId === item.id ? editLightPickField : null}
+                  onStartLightPick={(field) => handleStartLightPick('edit', field)}
+                />
+              ))}
 
-            <div className={styles.devicePanelList}>
-              {topFilter !== 'zone' && (
-                <>
-                  {visibleStructureNodes.map((n) => (
-                    <StructureNodeCard
-                      key={n.id}
-                      node={n}
-                      sameTypeIndex={structureNodes
-                        .filter((x) => x.type === n.type)
-                        .findIndex((x) => x.id === n.id)}
-                      selected={isNodeSelected(n.id)}
-                      editing={editingStructureId === n.id}
-                      diagnosisUnreachable={
-                        isDiagnosisHighlighted &&
-                        !!routeDiagnosisQuery.data?.unreachableNodeIds?.includes(n.id)
-                      }
-                      startCandidatePending={startCandidatePendingIds.has(n.id)}
-                      editingLocked={editingLocked}
-                      editingLockHintId={EDITING_LOCK_HINT_ID}
-                      onSelect={(id) => handleZoneRefSelect({ kind: 'node', id })}
-                      onToggleFinalExit={handleToggleFinalExit}
-                      onToggleStartCandidate={handleToggleStartCandidate}
-                      onStartEdit={handleStartEditStructure}
-                      onDelete={handleStructureNodeDelete}
-                    />
-                  ))}
+              {panelItems.length === 0 &&
+                visibleStructureNodes.length === 0 &&
+                topFilter === 'device' && (
+                  <EmptyState size="compact" title="표시할 노드가 없습니다" />
+                )}
+            </>
+          )}
 
-                  {panelItems.map((item) => (
-                    <DeviceCard
-                      key={item.id}
-                      item={item}
-                      selected={isPanelItemSelected(item)}
-                      editing={editingItemId === item.id}
-                      editForm={editForm}
-                      hasChanges={isDeviceEditFormDirty}
-                      editingLocked={editingLocked}
-                      editingLockHintId={EDITING_LOCK_HINT_ID}
-                      onEditFormChange={setEditForm}
-                      onSelect={handlePanelItemSelect}
-                      onStartEdit={handleStartEdit}
-                      onSaveEdit={handleSaveEdit}
-                      onCancelEdit={handleCancelEdit}
-                      onDelete={handlePanelItemDelete}
-                      onToggleEnabled={handleToggleEnabled}
-                      onEditCctvCells={handleStartEditCctvCells}
-                      lightNodeOptions={lightNodeOptions}
-                      lightEdgeOptions={lightEdgeOptions}
-                      lightCctvOptions={lightCctvOptions}
-                      lightPickField={editingItemId === item.id ? editLightPickField : null}
-                      onStartLightPick={(field) => handleStartLightPick('edit', field)}
-                    />
-                  ))}
-
-                  {panelItems.length === 0 &&
-                    visibleStructureNodes.length === 0 &&
-                    topFilter === 'device' && (
-                      <EmptyState size="compact" title="표시할 노드가 없습니다" />
-                    )}
-                </>
-              )}
-
-              {topFilter !== 'device' &&
-                zones
-                  .filter((z) => z.type === 'general')
-                  .map((z) => (
-                    <ZoneCard
-                      key={z.id}
-                      zone={z}
-                      selected={isZoneSelected(z.id)}
-                      editing={editingZoneId === z.id}
-                      editLabel={zoneEditLabel}
-                      draftCellCount={zoneDraftCellIds.length}
-                      editingLocked={editingLocked}
-                      editingLockHintId={EDITING_LOCK_HINT_ID}
-                      onEditLabelChange={setZoneEditLabel}
-                      onSelect={(id) => handleZoneRefSelect({ kind: 'zone', id })}
-                      onStartEdit={handleStartEditZone}
-                      onSaveLabel={handleSaveZoneLabel}
-                      onDelete={handleZoneDeleteRequest}
-                    />
-                  ))}
-            </div>
-          </div>
-        </aside>
+          {topFilter !== 'device' &&
+            zones
+              .filter((z) => z.type === 'general')
+              .map((z) => (
+                <ZoneCard
+                  key={z.id}
+                  zone={z}
+                  selected={isZoneSelected(z.id)}
+                  editing={editingZoneId === z.id}
+                  editLabel={zoneEditLabel}
+                  draftCellCount={zoneDraftCellIds.length}
+                  editingLocked={editingLocked}
+                  editingLockHintId={EDITING_LOCK_HINT_ID}
+                  onEditLabelChange={setZoneEditLabel}
+                  onSelect={(id) => handleZoneRefSelect({ kind: 'zone', id })}
+                  onStartEdit={handleStartEditZone}
+                  onSaveLabel={handleSaveZoneLabel}
+                  onDelete={handleZoneDeleteRequest}
+                />
+              ))}
+        </DevicePanel>
       </div>
 
       <FloorUploadModal
