@@ -5,6 +5,8 @@ import type {
   RouteSegment,
 } from '@apis/__generated__/data-contracts';
 
+import { ROUTE_RECALCULATION_EXPIRED_MESSAGE } from '../constants/scenarioSettings';
+
 export const formatCurrentRoute = (route?: CurrentRouteResponse) => {
   const labels = route?.path?.map((node) => node.name || '이름 없는 지점').filter(Boolean) ?? [];
   if (labels.length === 0) return '현재 대피 경로 정보가 없습니다.';
@@ -21,7 +23,19 @@ const formatRouteSegment = (segment?: RouteSegment) => {
     : `${nodeCount}개 지점 · 가중치 ${weight.toFixed(1)}`;
 };
 
-export const formatRouteProposal = (detail: RouteRecalculationDetailResponse | undefined) => {
+export const formatRouteProposal = (
+  detail: RouteRecalculationDetailResponse | undefined,
+  status = detail?.status,
+) => {
+  if (status === 'CANCELLED') {
+    return {
+      status: 'CANCELLED' as const,
+      message: ROUTE_RECALCULATION_EXPIRED_MESSAGE,
+      previousRoute: '',
+      candidateRoute: '',
+    };
+  }
+
   if (!detail) return null;
 
   const isFireSpread = detail.triggerType === 'FIRE_SPREAD';
@@ -35,6 +49,7 @@ export const formatRouteProposal = (detail: RouteRecalculationDetailResponse | u
   const candidateRoute = formatRouteSegment(detail.candidateRoute);
 
   return {
+    status: 'PENDING' as const,
     message: isFireSpread
       ? '화재 확산으로 우회 경로가 제안되었습니다.'
       : reason || '혼잡 감지로 새 대피 경로가 제안되었습니다.',

@@ -85,16 +85,18 @@ export const useTrainingRouteData = ({
       !item.recalculationId ||
       !isResolvedRecalculation(eventStateRef.current, sessionId, item.recalculationId),
   );
-  const pendingRecalculation = getLatestRecalculation(
-    recalculations.filter((item) => item.status === 'PENDING'),
+  const visibleRecalculation = getLatestRecalculation(
+    recalculations.filter((item) => item.status === 'PENDING' || item.status === 'CANCELLED'),
   );
+  const pendingRecalculation =
+    visibleRecalculation?.status === 'PENDING' ? visibleRecalculation : undefined;
   const detailQuery = useRouteRecalculationDetailQuery(
     pendingRecalculation?.recalculationId,
     shouldFetch && liveUpdatesEnabled,
   );
   const approveMutation = useApproveRouteRecalculationMutation();
   const rejectMutation = useRejectRouteRecalculationMutation();
-  const routeProposal = formatRouteProposal(detailQuery.data);
+  const routeProposal = formatRouteProposal(detailQuery.data, visibleRecalculation?.status);
   const currentRouteMessage = getCurrentRouteMessage(
     currentRouteQuery.data,
     currentRouteQuery.isPending,
@@ -139,9 +141,11 @@ export const useTrainingRouteData = ({
         if (eventKeys.some((key) => eventStateRef.current.processedEventKeys.has(key))) return;
         eventKeys.forEach((key) => eventStateRef.current.processedEventKeys.add(key));
 
-        if (status !== 'PENDING') {
-          const resolvedId = getResolvedRecalculationId(routeEvent.data, fetchedRecalculations);
-          if (resolvedId) removeResolvedRecalculation(resolvedId);
+        const resolvedId = getResolvedRecalculationId(routeEvent.data, fetchedRecalculations);
+        if (status === 'CANCELLED') {
+          if (resolvedId) eventStateRef.current.resolvedRecalculationIds.delete(resolvedId);
+        } else if (status !== 'PENDING' && resolvedId) {
+          removeResolvedRecalculation(resolvedId);
         }
 
         void queryClient.invalidateQueries({ queryKey: routeRecalculationQueryKeys.all });
