@@ -67,14 +67,16 @@ import { createUserZone, deleteUserZone } from './api/userZoneApi';
 import AddActionMenu from './components/AddActionMenu';
 import { canvasPlaceholder } from './components/canvas/canvas.css';
 import FloorCanvas from './components/canvas/FloorCanvas';
-import EdgeChainReviewPopup from './components/EdgeChainReviewPopup';
-import NodeAddPopup from './components/NodeAddPopup';
 import NodeTypeLegendInfo from './components/NodeTypeLegendInfo';
 import DeviceCard from './components/panel/DeviceCard';
 import StructureNodeCard from './components/panel/StructureNodeCard';
 import ZoneCard from './components/panel/ZoneCard';
+import EdgeChainPopup from './components/popups/EdgeChainPopup';
+import GridSetupPopup from './components/popups/GridSetupPopup';
+import NodeAddPopup from './components/popups/NodeAddPopup';
+import SidebarPopup from './components/popups/SidebarPopup';
+import ZoneAddPopup from './components/popups/ZoneAddPopup';
 import ReadinessChecklist from './components/ReadinessChecklist';
-import ZoneAddPopup from './components/ZoneAddPopup';
 import { DEVICE_PLACE_CONFIG } from './constants/devicePlacement';
 import {
   API_TYPE_TO_STRUCTURE,
@@ -110,7 +112,7 @@ import type { Cctv } from './api/cctvApi';
 import type { FloorGridCell } from './api/floorGridApi';
 import type { IoTLight } from './api/iotLightsApi';
 import type { FloorGraph, MapEdge, MapNodeType } from './api/mapGraphApi';
-import type { LightAddFields } from './components/NodeAddPopup';
+import type { LightAddFields } from './components/popups/NodeAddPopup';
 import type { AddedDevice, PlacingDeviceType } from './constants/devicePlacement';
 import type { StructureNode } from './constants/structureNode';
 import type { SelectedItem, ZoneEntry, ZoneRect, ZoneRefSelection } from './types/canvasSelection';
@@ -670,9 +672,6 @@ const FloorPlansDetailPage = () => {
       .catch(() => {});
   };
 
-  const nodePopupRef = useRef<HTMLDivElement>(null);
-  const zonePopupRef = useRef<HTMLDivElement>(null);
-  const edgePopupRef = useRef<HTMLDivElement>(null);
   const mapWrapRef = useRef<HTMLDivElement>(null);
   const devicePanelRef = useRef<HTMLDivElement>(null);
 
@@ -2332,138 +2331,45 @@ const FloorPlansDetailPage = () => {
                 떠 있어서 도면을 가려 그 밑을 클릭할 수 없었음. 도면을 보면서 동시에 입력할 수
                 있어야 하는 흐름이라, 캔버스와 겹치지 않는 이 사이드바로 옮김 */}
             {gridSetupPromptOpen && (
-              <div className={styles.gridSetupPopup} onClick={(e) => e.stopPropagation()}>
-                <span className={styles.nodeAddTitle}>그리드 설정 필요</span>
-                <span className={styles.nodeAddHint}>
-                  이 층에는 아직 그리드가 없어요. 셀 크기를 정하고 설정해주세요.
-                </span>
-                <div className={styles.nodeAddField}>
-                  <div className={styles.gridSizeLabelRow}>
-                    <span className={styles.nodeAddLabel}>셀 크기</span>
-                    <span className={styles.gridSizeValue}>{Number(gridSizeCmInput || 1)}cm</span>
-                  </div>
-                  <input
-                    type="range"
-                    className={styles.gridSizeSlider}
-                    aria-label="그리드 셀 크기(cm)"
-                    min={1}
-                    max={499}
-                    step={1}
-                    value={Number(gridSizeCmInput || 1)}
-                    onChange={(e) => setGridSizeCmInput(e.target.value)}
-                  />
-                </div>
-                <div className={styles.nodeAddActions}>
-                  <button
-                    type="button"
-                    className={styles.nodeAddCancelBtn}
-                    onClick={handleGridSetupPromptCancel}
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.nodeAddSubmitBtn}
-                    disabled={!(Number(gridSizeCmInput) > 0 && Number(gridSizeCmInput) < 500)}
-                    onClick={handleGridSetupPromptConfirm}
-                  >
-                    설정
-                  </button>
-                </div>
-              </div>
+              <GridSetupPopup
+                cellSizeCm={gridSizeCmInput}
+                onCellSizeChange={setGridSizeCmInput}
+                onCancel={handleGridSetupPromptCancel}
+                onConfirm={handleGridSetupPromptConfirm}
+              />
             )}
 
-            {/* 노드를 순서대로 계속 클릭해 경로를 쌓는 패널 — 경로 하나를 확정하면 모드도 같이
-                끝나므로(핸들러 쪽 주석 참고), 여기선 항상 "아직 아무 것도 안 만든 상태"만 보여줌 */}
-            {edgeAddOpen && !edgeChainReviewOpen && (
-              <div className={styles.nodeAddPopup} onClick={(e) => e.stopPropagation()}>
-                <div className={styles.nodeAddHeader}>
-                  <span className={styles.nodeAddTitle}>엣지 연결</span>
-                </div>
-                <span className={styles.nodeAddHint}>
-                  {edgeChainNodeIds.length === 0
-                    ? '연결할 노드를 순서대로 클릭하세요'
-                    : `계속 클릭해서 경로를 잇거나, 다음을 눌러 ${edgeChainNodeIds.length - 1}개 구간을 확정하세요`}
-                </span>
-                {edgeChainNodeIds.length > 0 && (
-                  <span className={styles.edgeChainPath}>
-                    {edgeChainNodeIds.map((id) => getGraphNodeLabel(id)).join(' → ')}
-                  </span>
-                )}
-                <div className={styles.nodeAddActions}>
-                  {edgeChainNodeIds.length > 0 && (
-                    <button
-                      type="button"
-                      className={styles.nodeAddCancelBtn}
-                      onClick={handleClearEdgeChain}
-                    >
-                      다시 선택
-                    </button>
-                  )}
-                  {edgeChainNodeIds.length >= 2 ? (
-                    <button
-                      type="button"
-                      className={styles.nodeAddSubmitBtn}
-                      onClick={handleProceedToEdgeChainReview}
-                    >
-                      다음
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.nodeAddCancelBtn}
-                      onClick={handleExitEdgeMode}
-                    >
-                      취소
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {edgeAddOpen && edgeChainReviewOpen && (
-              <EdgeChainReviewPopup
-                containerRef={edgePopupRef}
+            {edgeAddOpen && (
+              <EdgeChainPopup
+                nodeLabels={edgeChainNodeIds.map((id) => getGraphNodeLabel(id))}
+                reviewing={edgeChainReviewOpen}
                 segments={edgeChainSegments}
+                onClear={handleClearEdgeChain}
+                onNext={handleProceedToEdgeChainReview}
+                onCancel={handleExitEdgeMode}
                 onBack={handleBackFromEdgeChainReview}
                 onSubmit={handleSubmitEdgeChain}
               />
             )}
 
             {editingCctvId && (
-              // 예전엔 좌측 상단에 raw 스타일로 떠서 눈에 잘 안 띄었음 — 다른 모든 "설정 중"
-              // 팝업(구역 설정 등)과 같은 자리·같은 스타일로 통일해서 찾기 쉽게 함
-              <div className={styles.nodeAddPopup} onClick={(e) => e.stopPropagation()}>
-                <div className={styles.nodeAddHeader}>
-                  <span className={styles.nodeAddTitle}>감시 영역 재선택</span>
-                </div>
-                <span className={styles.nodeAddHint}>
-                  도면에서 칸을 클릭하거나 드래그해서 감시 영역을 다시 선택해주세요.{' '}
-                  {cctvDraftCellIds.length}칸 선택됨.
-                </span>
-                <div className={styles.nodeAddActions}>
-                  <button
-                    type="button"
-                    className={styles.nodeAddCancelBtn}
-                    onClick={handleCancelEditCctvCells}
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.nodeAddSubmitBtn}
-                    disabled={cctvDraftCellIds.length === 0}
-                    onClick={handleSaveEditCctvCells}
-                  >
-                    저장
-                  </button>
-                </div>
-              </div>
+              <SidebarPopup
+                title="감시 영역 재선택"
+                hint={`도면에서 칸을 클릭하거나 드래그해서 감시 영역을 다시 선택해주세요. ${cctvDraftCellIds.length}칸 선택됨.`}
+                actions={[
+                  { label: '취소', variant: 'cancel', onClick: handleCancelEditCctvCells },
+                  {
+                    label: '저장',
+                    variant: 'submit',
+                    disabled: cctvDraftCellIds.length === 0,
+                    onClick: handleSaveEditCctvCells,
+                  },
+                ]}
+              />
             )}
 
             {nodeAddOpen && !gridSetupPromptOpen && (
               <NodeAddPopup
-                containerRef={nodePopupRef}
                 type={nodeAddType}
                 onTypeChange={setNodeAddType}
                 stage={nodeAddStage}
@@ -2488,7 +2394,6 @@ const FloorPlansDetailPage = () => {
                 여전히 필요함) */}
             {zoneAddOpen && !zoneResetTargetId && (
               <ZoneAddPopup
-                containerRef={zonePopupRef}
                 selectedCellCount={zoneDraftCellIds.length}
                 onCancel={() => setZoneAddOpen(false)}
                 onSave={handleAddZone}

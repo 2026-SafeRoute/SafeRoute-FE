@@ -10,9 +10,7 @@ import Dropdown from '@components/dropdown';
 import { formatAreaM2 } from '@utils/format';
 
 import * as styles from './panelCard.css';
-import * as popupStyles from '../../FloorPlansDetailPage.css';
-import { getLightPickHint } from '../../utils/lightPick';
-import LightPickField from '../LightPickField';
+import LightGuidanceFields from '../popups/LightGuidanceFields';
 
 import type { DeviceEditForm, PanelItem } from '../../types/panelItem';
 import type { LightPickFieldName } from '../../utils/lightPick';
@@ -218,68 +216,13 @@ const DeviceCard = ({
           </div>
           {editing && detailsOpen && (
             <div className={styles.lightFieldGroup} onClick={(e) => e.stopPropagation()}>
-              {/* "판단 노드"·"경로 엣지"란 용어가 무엇을 고르는 건지 안 와닿는다는 QA 피드백 —
-                  펼쳤을 때 항상 보이는 문장으로 먼저 설명함(hover에만 의존하던 title 문구를 대체).
-                  드롭다운에 같은 이름 노드가 많아 헷갈리면 "캔버스에서 선택"으로 도면에서 직접
-                  클릭해 고를 수도 있음 */}
-              {(() => {
-                const lightPickHint = getLightPickHint(
-                  lightPickField,
-                  editForm.decisionNodeId,
-                  lightEdgeOptions,
-                );
-                return (
-                  <span
-                    className={clsx(
-                      popupStyles.nodeAddHint,
-                      lightPickHint.isWarning && popupStyles.nodeAddHintWarning,
-                    )}
-                  >
-                    {lightPickHint.text}
-                  </span>
-                );
-              })()}
-              <LightPickField
-                label="갈림길 위치"
-                fieldName="decisionNode"
+              <LightGuidanceFields
+                value={editForm}
+                onChange={(guidance) => onEditFormChange({ ...editForm, ...guidance })}
+                nodeOptions={lightNodeOptions}
+                edgeOptions={lightEdgeOptions}
                 pickField={lightPickField}
-                displayLabel={lightNodeOptions.find((n) => n.id === editForm.decisionNodeId)?.label}
-                emptyText="갈림길 위치 선택"
-                onStartPick={() => onStartLightPick('decisionNode')}
-                onClear={() =>
-                  // 갈림길 위치(판단 노드)를 바꾸면 이전 노드에 연결돼 있던 좌/우 통로 선택은
-                  // 더 이상 유효하지 않을 수 있어(연결 안 된 엣지를 저장 시점에야 서버가
-                  // 거부하던 문제의 원인이었음) 같이 비움
-                  onEditFormChange({
-                    ...editForm,
-                    decisionNodeId: '',
-                    leftEdgeId: '',
-                    rightEdgeId: '',
-                  })
-                }
-              />
-              {/* 갈림길 위치에 실제로 연결된 통로(엣지)만 후보로 보여줌 — 그 외를 고르면 저장할 때
-                  서버가 거부해서(leftEdgeId/rightEdgeId는 decisionNodeId에 연결돼 있어야 함)
-                  헷갈리던 문제를 아예 고를 수 없게 만들어 없앰 */}
-              <LightPickField
-                label="왼쪽 통로"
-                fieldName="leftEdge"
-                pickField={lightPickField}
-                disabled={!editForm.decisionNodeId}
-                displayLabel={lightEdgeOptions.find((e) => e.id === editForm.leftEdgeId)?.label}
-                emptyText={editForm.decisionNodeId ? '왼쪽 통로 선택' : '갈림길 위치를 먼저 선택'}
-                onStartPick={() => onStartLightPick('leftEdge')}
-                onClear={() => onEditFormChange({ ...editForm, leftEdgeId: '' })}
-              />
-              <LightPickField
-                label="오른쪽 통로"
-                fieldName="rightEdge"
-                pickField={lightPickField}
-                disabled={!editForm.decisionNodeId}
-                displayLabel={lightEdgeOptions.find((e) => e.id === editForm.rightEdgeId)?.label}
-                emptyText={editForm.decisionNodeId ? '오른쪽 통로 선택' : '갈림길 위치를 먼저 선택'}
-                onStartPick={() => onStartLightPick('rightEdge')}
-                onClear={() => onEditFormChange({ ...editForm, rightEdgeId: '' })}
+                onStartPick={onStartLightPick}
               />
             </div>
           )}
