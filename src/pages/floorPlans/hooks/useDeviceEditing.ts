@@ -181,7 +181,11 @@ export const useDeviceEditing = ({
         setEditingCctvId(null);
         setCctvDraftCellIds([]);
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        // 실패해도 재선택 모드는 그대로 두어 다시 저장할 수 있게 하고, 이유만 알림
+        const { message: serverMessage } = extractApiError(error);
+        show({ title: serverMessage || '감시 영역 저장에 실패했습니다.', variant: 'error' });
+      });
   };
 
   const handleAddedDeviceDelete = (id: string) => {
@@ -289,15 +293,18 @@ export const useDeviceEditing = ({
           name: newLabel,
           x: finalX / 100,
           y: finalY / 100,
-        }).catch((error: unknown) => {
-          rollback();
-          const serverMessage = extractApiError(error).message;
-          show({
-            title: '유도등 정보 수정에 실패했습니다.',
-            description: serverMessage || '다시 시도해주세요.',
-            variant: 'error',
+        })
+          // 성공 응답을 유도등 캐시에도 반영 — 안 하면 이후 동기화 때 이전 이름·위치로 되돌아감
+          .then(patchLightCache)
+          .catch((error: unknown) => {
+            rollback();
+            const serverMessage = extractApiError(error).message;
+            show({
+              title: '유도등 정보 수정에 실패했습니다.',
+              description: serverMessage || '다시 시도해주세요.',
+              variant: 'error',
+            });
           });
-        });
 
         // 가이던스·담당 CCTV는 예전 설정 모달의 "저장" 버튼들이 하던 일을 그대로 옮긴 것 —
         // 바뀐 값이 있을 때만, 각자 독립된 PATCH로 보냄. Pi 엔드포인트는 스웨거 확인 결과

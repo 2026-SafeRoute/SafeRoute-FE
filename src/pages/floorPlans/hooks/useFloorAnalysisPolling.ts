@@ -67,6 +67,9 @@ export const useFloorAnalysisPolling = (buildingId?: string, floorId?: string) =
     streak: 0,
     updateCount: -1,
   });
+  // 빈 그래프 재시도를 세기 시작한 시점 — dataUpdateCount는 setQueryData(노드 추가·드래그 등)로도
+  // 늘어나서 쿼리 전체 누적값으로 세면, 편집 후 재업로드했을 때 재시도가 바로 끝나 그래프가 빈 채로 남음
+  const emptyGraphRetryStartRef = useRef<{ queryHash: string; updateCount: number } | null>(null);
   const prevSegStatusRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const prev = prevSegStatusRef.current;
@@ -77,6 +80,7 @@ export const useFloorAnalysisPolling = (buildingId?: string, floorId?: string) =
     if (justFinished) {
       graphSettleUntilRef.current = Date.now() + GRAPH_SETTLE_WINDOW_MS;
       graphNodeStreakRef.current = { count: -1, streak: 0, updateCount: -1 };
+      emptyGraphRetryStartRef.current = null;
       // 분석이 끝나면 이 층에 걸린 모든 조회(이미지 URL·그래프·그리드·CCTV·유도등·구역·목록)를
       // 한 번에 무효화한다. 캐시마다 갱신 트리거(폴링/enabled 전환/staleTime)가 제각각이라
       // 업로드마다 어떤 건 뜨고 어떤 건 새로고침해야 뜨는 문제가 반복됐음 — 완료 시점에
@@ -98,8 +102,19 @@ export const useFloorAnalysisPolling = (buildingId?: string, floorId?: string) =
       const data = query.state.data;
       if (!data) return false;
       if (data.nodes.length === 0) {
-        return query.state.dataUpdateCount <= GRAPH_RETRY_LIMIT ? GRAPH_RETRY_INTERVAL_MS : false;
+        const start = emptyGraphRetryStartRef.current;
+        if (!start || start.queryHash !== query.queryHash) {
+          emptyGraphRetryStartRef.current = {
+            queryHash: query.queryHash,
+            updateCount: query.state.dataUpdateCount,
+          };
+        }
+        // 빈 응답이 처음 온 뒤로 다시 받아온 횟수
+        const retryCount =
+          query.state.dataUpdateCount - (emptyGraphRetryStartRef.current?.updateCount ?? 0);
+        return retryCount < GRAPH_RETRY_LIMIT ? GRAPH_RETRY_INTERVAL_MS : false;
       }
+      emptyGraphRetryStartRef.current = null;
       if (Date.now() >= graphSettleUntilRef.current) return false;
       const s = graphNodeStreakRef.current;
       if (query.state.dataUpdateCount !== s.updateCount) {

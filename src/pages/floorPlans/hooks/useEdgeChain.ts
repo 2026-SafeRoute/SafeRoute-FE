@@ -209,7 +209,10 @@ export const useEdgeChain = ({
         setSelectedEdgeId((prev) => (prev === edgeId ? null : prev));
         void invalidateFloorRouteDiagnosis();
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        const { message: serverMessage } = extractApiError(error);
+        show({ title: serverMessage || '엣지 삭제에 실패했습니다.', variant: 'error' });
+      });
   };
 
   const handleOpenEdgeAdd = () => {
