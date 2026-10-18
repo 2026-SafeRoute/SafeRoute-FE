@@ -8,6 +8,8 @@ import {
   TRAINING_SESSION_STATUS,
 } from '@apis/trainingSessions/trainingSessionConstants';
 
+import CameraIcon from '@assets/icons/ic-camera.svg?react';
+
 import EmptyState from '@components/empty';
 import LoadingState from '@components/loadingState';
 import useToast from '@components/toast/useToast';
@@ -225,7 +227,10 @@ const TrainingCamerasPage = () => {
         )}
 
         {!isCamerasLoading && !isCamerasError && cameras.length === 0 && (
-          <EmptyState title="등록된 카메라가 없습니다" />
+          <EmptyState
+            icon={<CameraIcon width={32} height={32} />}
+            title="등록된 카메라가 없습니다"
+          />
         )}
 
         {!isCamerasLoading && !isCamerasError && cameras.length > 0 && (
