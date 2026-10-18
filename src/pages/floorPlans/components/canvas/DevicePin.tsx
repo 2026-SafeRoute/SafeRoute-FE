@@ -5,10 +5,10 @@ import clsx from 'clsx';
 import CameraIcon from '@assets/icons/ic-camera.svg?react';
 import WifiIcon from '@assets/icons/ic-wifi.svg?react';
 
-import * as styles from '../FloorPlansDetailPage.css';
-import { rafThrottle } from '../utils/rafThrottle';
+import * as styles from './canvas.css';
+import { rafThrottle } from '../../utils/rafThrottle';
 
-import type { DeviceMarker } from '../types/floorPlans';
+import type { DeviceMarker } from '../../types/floorPlans';
 
 interface DevicePinProps {
   device: DeviceMarker;

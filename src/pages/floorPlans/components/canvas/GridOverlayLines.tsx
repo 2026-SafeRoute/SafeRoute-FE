@@ -1,6 +1,6 @@
 import { CANVAS_W } from '@utils/floorCanvas';
 
-import type { FloorGridCell } from '../api/floorGridApi';
+import type { FloorGridCell } from '../../api/floorGridApi';
 
 interface GridOverlayLinesProps {
   cells: FloorGridCell[];

@@ -67,9 +67,10 @@ import {
 } from './api/mapGraphApi';
 import { createUserZone, deleteUserZone } from './api/userZoneApi';
 import AddActionMenu from './components/AddActionMenu';
+import { canvasPlaceholder } from './components/canvas/canvas.css';
+import FloorCanvas from './components/canvas/FloorCanvas';
 import DeviceCard from './components/DeviceCard';
 import EdgeChainReviewPopup from './components/EdgeChainReviewPopup';
-import FloorCanvas from './components/FloorCanvas';
 import NodeAddPopup from './components/NodeAddPopup';
 import NodeTypeLegendInfo from './components/NodeTypeLegendInfo';
 import ReadinessChecklist from './components/ReadinessChecklist';
@@ -2752,7 +2753,7 @@ const FloorPlansDetailPage = () => {
                 // 실제로 없는 층(404 등)일 때만 안내. 목록 캐시에 아직 안 들어온 층을 직접
                 // 열었거나 방금 만든 직후엔 잠깐 둘 다 비어 있을 수 있어, 그 사이엔 로딩만 보여줌
                 <EmptyState
-                  className={styles.canvasPlaceholder}
+                  className={canvasPlaceholder}
                   size="compact"
                   icon={<MapIcon />}
                   title="층 정보를 찾을 수 없습니다"

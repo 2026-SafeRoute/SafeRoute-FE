@@ -7,17 +7,17 @@ import { vars } from '@styles/global.css';
 import { CANVAS_W, buildZoneOutlinePath } from '@utils/floorCanvas';
 
 import GridOverlayLines from './GridOverlayLines';
-import { DEVICE_COLOR } from '../constants/deviceColors';
-import { STRUCTURE_NODE_COLOR } from '../constants/structureNode';
-import { hasExistingEdge } from '../utils/hasExistingEdge';
-import { rafThrottle } from '../utils/rafThrottle';
+import { DEVICE_COLOR } from '../../constants/deviceColors';
+import { STRUCTURE_NODE_COLOR } from '../../constants/structureNode';
+import { hasExistingEdge } from '../../utils/hasExistingEdge';
+import { rafThrottle } from '../../utils/rafThrottle';
 
-import type { FloorGridCell } from '../api/floorGridApi';
-import type { MapEdge, MapNode } from '../api/mapGraphApi';
-import type { StructureNode } from '../constants/structureNode';
-import type { ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
-import type { FloorRouteDiagnosisHighlight } from '../types/routeDiagnosis';
-import type { LightPickFieldName } from '../utils/lightPick';
+import type { FloorGridCell } from '../../api/floorGridApi';
+import type { MapEdge, MapNode } from '../../api/mapGraphApi';
+import type { StructureNode } from '../../constants/structureNode';
+import type { ZoneEntry, ZoneRect, ZoneRefSelection } from '../../types/canvasSelection';
+import type { FloorRouteDiagnosisHighlight } from '../../types/routeDiagnosis';
+import type { LightPickFieldName } from '../../utils/lightPick';
 
 // 맵그래프 노드 중 문/계단이 아닌 나머지(ROOM/HALLWAY/EXIT/CUSTOM) — 조회 전용, 아직 편집 대상 아님
 const GRAPH_NODE_COLOR: Record<'ROOM' | 'HALLWAY' | 'EXIT' | 'CUSTOM', string> = {

@@ -7,18 +7,23 @@ import LoadingState from '@components/loadingState';
 import { CANVAS_W } from '@utils/floorCanvas';
 
 import AddedDevicePin from './AddedDevicePin';
+import * as styles from './canvas.css';
 import DevicePin from './DevicePin';
 import FloorCanvasSvg from './FloorCanvasSvg';
-import * as styles from '../FloorPlansDetailPage.css';
 
-import type { FloorGridCell } from '../api/floorGridApi';
-import type { MapEdge, MapNode } from '../api/mapGraphApi';
-import type { AddedDevice } from '../constants/devicePlacement';
-import type { StructureNode } from '../constants/structureNode';
-import type { SelectedItem, ZoneEntry, ZoneRect, ZoneRefSelection } from '../types/canvasSelection';
-import type { DeviceMarker, Floor } from '../types/floorPlans';
-import type { FloorRouteDiagnosisHighlight } from '../types/routeDiagnosis';
-import type { LightPickFieldName } from '../utils/lightPick';
+import type { FloorGridCell } from '../../api/floorGridApi';
+import type { MapEdge, MapNode } from '../../api/mapGraphApi';
+import type { AddedDevice } from '../../constants/devicePlacement';
+import type { StructureNode } from '../../constants/structureNode';
+import type {
+  SelectedItem,
+  ZoneEntry,
+  ZoneRect,
+  ZoneRefSelection,
+} from '../../types/canvasSelection';
+import type { DeviceMarker, Floor } from '../../types/floorPlans';
+import type { FloorRouteDiagnosisHighlight } from '../../types/routeDiagnosis';
+import type { LightPickFieldName } from '../../utils/lightPick';
 
 const CANVAS_RENDER_WIDTH = 700;
 
