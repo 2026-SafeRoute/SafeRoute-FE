@@ -127,20 +127,21 @@ const ToastProvider = ({ children }: ToastProviderProps) => {
           !leaveTimersRef.current.has(toast.id),
       );
       if (existing) {
-        syncToasts((prev) =>
-          prev.map((toast) => (toast.id === existing.id ? { ...toast, ...toastOptions } : toast)),
-        );
+        syncToasts((prev) => [
+          { ...existing, ...toastOptions },
+          ...prev.filter((toast) => toast.id !== existing.id),
+        ]);
         scheduleRemoval(existing.id, duration);
         return existing.id;
       }
 
       if (toastsRef.current.length >= MAX_TOASTS) {
-        const evicted = toastsRef.current[0];
+        const evicted = toastsRef.current[toastsRef.current.length - 1];
         remove(evicted.id);
       }
 
       const id = `toast-${Date.now()}-${Math.random()}`;
-      syncToasts((prev) => [...prev, { id, ...toastOptions }]);
+      syncToasts((prev) => [{ id, ...toastOptions }, ...prev]);
       scheduleRemoval(id, duration);
       return id;
     },
@@ -154,9 +155,7 @@ const ToastProvider = ({ children }: ToastProviderProps) => {
       }
 
       const toastOptions = normalizeToastOptions(options);
-      syncToasts((prev) =>
-        prev.map((toast) => (toast.id === id ? { id, ...toastOptions } : toast)),
-      );
+      syncToasts((prev) => [{ id, ...toastOptions }, ...prev.filter((toast) => toast.id !== id)]);
       scheduleRemoval(id, toastOptions.duration);
       return true;
     },
