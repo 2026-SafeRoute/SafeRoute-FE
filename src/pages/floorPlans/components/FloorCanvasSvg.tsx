@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
+import TriangleIcon from '@assets/icons/ic-triangle.svg?react';
+
 import { vars } from '@styles/global.css';
 
 import { CANVAS_W, buildZoneOutlinePath } from '@utils/floorCanvas';
@@ -24,6 +26,9 @@ const GRAPH_NODE_COLOR: Record<'ROOM' | 'HALLWAY' | 'EXIT' | 'CUSTOM', string> =
   EXIT: vars.color.success,
   CUSTOM: '#7c3aed',
 };
+
+// 계단 노드 삼각형 아이콘 크기 — 글자(▲)는 위치마다 픽셀 정렬이 달라 크기가 들쭉날쭉해 보여 도형으로 고정
+const STAIR_ICON_SIZE = 7;
 
 interface FloorCanvasSvgProps {
   mapImageUrl: string | null;
@@ -683,22 +688,18 @@ const FloorCanvasSvg = ({
               strokeWidth={isEditingThis ? 3 : n.isFinalExit || n.isStartCandidate ? 2 : 0}
             />
             {isStair && (
-              <text
-                x={n.x}
-                y={n.y + 3}
-                textAnchor="middle"
-                fontSize="10"
-                fontWeight="700"
-                fill={
+              <TriangleIcon
+                x={n.x - STAIR_ICON_SIZE / 2}
+                y={n.y - STAIR_ICON_SIZE / 2}
+                width={STAIR_ICON_SIZE}
+                height={STAIR_ICON_SIZE}
+                color={
                   !isUnreachable && !isLimitedExitStart && isUndesignatedStair
                     ? vars.color.gray300
                     : vars.color.white
                 }
-                fontFamily="sans-serif"
                 style={{ pointerEvents: 'none' }}
-              >
-                ▲
-              </text>
+              />
             )}
             {n.isFinalExit && (
               <text

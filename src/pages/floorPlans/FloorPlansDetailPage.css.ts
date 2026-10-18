@@ -736,9 +736,7 @@ export const diagnosisLegendNodeStart = style({
 });
 
 export const diagnosisLegendNodeStair = style({
-  lineHeight: 1,
   color: vars.color.gray300,
-  fontSize: '0.7rem',
 });
 
 /* ── 우측 장비 목록 패널 ── */

@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import clsx from 'clsx';
 
 import InfoIcon from '@assets/icons/ic-info.svg?react';
+import TriangleIcon from '@assets/icons/ic-triangle.svg?react';
 
 import useClickOutside from '@hooks/useClickOutside';
 
@@ -125,7 +126,7 @@ const NodeTypeLegendInfo = ({ diagnosisVisible = false }: NodeTypeLegendInfoProp
                     <span
                       className={clsx(styles.diagnosisLegendNode, styles.diagnosisLegendNodeStair)}
                     >
-                      ▲
+                      <TriangleIcon width="100%" height="100%" />
                     </span>
                   </span>
                   <span className={styles.zoneLegendLabel}>탈출구 미지정 계단</span>
