@@ -169,6 +169,7 @@ const NodeAddPopup = ({
             <span className={styles.nodeAddLabel}>장치 ID</span>
             <input
               className={styles.nodeAddInput}
+              aria-label="장치 ID"
               value={deviceId}
               onChange={(e) => setDeviceId(e.target.value)}
               placeholder={isCctv ? 'CCTV-A3-05' : 'IOT-A3-05'}

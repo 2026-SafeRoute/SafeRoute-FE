@@ -42,6 +42,7 @@ const ZoneAddPopup = ({ selectedCellCount, onCancel, onSave }: ZoneAddPopupProps
         <span className={styles.nodeAddLabel}>구역 이름</span>
         <input
           className={styles.nodeAddInput}
+          aria-label="구역 이름"
           value={zoneName}
           onChange={(e) => setZoneName(e.target.value)}
           placeholder="3층 앞 복도 구역"

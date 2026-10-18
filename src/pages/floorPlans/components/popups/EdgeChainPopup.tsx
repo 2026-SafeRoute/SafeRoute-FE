@@ -102,6 +102,7 @@ const EdgeChainReview = ({ segments, onBack, onSubmit }: EdgeChainReviewProps) =
                 className={styles.edgeChainDistanceInput}
                 type="text"
                 inputMode="decimal"
+                aria-label={`${s.fromLabel} → ${s.toLabel} 구간 거리(cm)`}
                 value={distancesCm[i]}
                 onChange={(e) => handleDistanceChange(i, e.target.value)}
                 placeholder="350"

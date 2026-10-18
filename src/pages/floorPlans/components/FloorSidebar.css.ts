@@ -23,6 +23,7 @@ export const sidebarInner = style({
   display: 'flex',
   flexDirection: 'column',
   gap: vars.space.s4,
+  padding: '2rem 2rem 2.4rem',
   minHeight: 'min-content',
 });
 

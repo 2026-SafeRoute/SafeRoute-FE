@@ -31,7 +31,7 @@ const FloorSidebar = ({
   children,
 }: FloorSidebarProps) => (
   <aside className={styles.sidebar}>
-    <div className={styles.sidebarInner} style={{ padding: '2rem 2rem 2.4rem' }}>
+    <div className={styles.sidebarInner}>
       <div
         id={EDITING_LOCK_HINT_ID}
         className={editingLocked ? styles.editingLockNotice : undefined}
@@ -58,6 +58,7 @@ const FloorSidebar = ({
                   key={f.id}
                   type="button"
                   className={clsx(styles.floorNavItem, isCurrent && styles.floorNavItemActive)}
+                  aria-current={isCurrent ? 'page' : undefined}
                   onClick={() => onFloorChange(f.id)}
                 >
                   <span>{formatFloor(f.floorNum)}</span>
