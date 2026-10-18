@@ -275,6 +275,37 @@ const FloorCanvasSvg = ({
     document.addEventListener('mouseup', onUp);
   };
 
+  // 맵그래프 노드(방·출구 등) 클릭 — 유도등 갈림길 선택 또는 엣지 연결
+  const handleGraphNodeClick = (e: React.MouseEvent, id: string) => {
+    if (lightPickField === 'decisionNode') {
+      e.stopPropagation();
+      onLightPick?.(id);
+      return;
+    }
+    if (!edgeAddActive) return;
+    e.stopPropagation();
+    onNodeClickForEdge(id);
+  };
+
+  // 구조 노드(문·계단·복도) 클릭 — 유도등 갈림길 선택, 엣지 연결, 또는 카드 선택
+  const handleStructureNodeClick = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (lightPickField === 'decisionNode') {
+      onLightPick?.(id);
+      return;
+    }
+    if (edgeAddActive) {
+      onNodeClickForEdge(id);
+      return;
+    }
+    if (structureDragMovedRef.current) {
+      structureDragMovedRef.current = false;
+      return;
+    }
+    if (editingStructureId) return;
+    onZoneRefSelect({ kind: 'node', id });
+  };
+
   const svgCursor = placingActive || zoneAddActive || edgeAddActive ? 'crosshair' : 'default';
   // 탈출구 도달 불가 노드 ID 집합
   const unreachableNodeIds = new Set(routeDiagnosisHighlight?.unreachableNodeIds);
@@ -439,6 +470,43 @@ const FloorCanvasSvg = ({
           );
         })}
 
+      {/* 노드 클릭 히트영역 — 엣지 연결·유도등 갈림길 선택 모드에선 작은 점을 정확히 겨냥하기
+          어려워 넓은 투명 원을 깔아 둔다. 노드 점들보다 아래 층에 그려야 함 — 각 노드 안에 두면
+          나중에 그려지는 구조 노드의 넓은 원이 바로 옆 노드(특히 출구와 끊겨 문 옆에 붙어 있는
+          방 노드)의 점까지 덮어서, 그 노드를 눌러도 옆 노드가 선택되던 문제가 있었음 */}
+      {(edgeAddActive || lightPickField === 'decisionNode') &&
+        graphNodes.map((n) => (
+          <circle
+            key={`graph-hit-${n.id}`}
+            cx={n.x * CANVAS_W}
+            cy={n.y * canvasH}
+            r={13}
+            fill="transparent"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => handleGraphNodeClick(e, n.id)}
+          />
+        ))}
+      {edgeAddActive &&
+        structureNodes
+          .filter((n) => n.id !== editingStructureId)
+          .map((n) => (
+            <circle
+              key={`structure-hit-${n.id}`}
+              cx={n.x}
+              cy={n.y}
+              r={16}
+              fill="transparent"
+              style={{
+                cursor: 'pointer',
+                pointerEvents:
+                  isZoneDragging || lightPickField === 'leftEdge' || lightPickField === 'rightEdge'
+                    ? 'none'
+                    : 'auto',
+              }}
+              onClick={(e) => handleStructureNodeClick(e, n.id)}
+            />
+          ))}
+
       {/* 맵그래프 노드 중 ROOM/HALLWAY/EXIT/CUSTOM — 엣지 연결 모드에서만 클릭 가능.
           ROOM/HALLWAY는 경로 계산용 내부 포인트라 엣지 연결 모드일 때만 화면에 표시 —
           평소엔 클릭도 안 되는데 캔버스만 지저분하게 만들어서 숨김. EXIT/CUSTOM은 정보성이라 항상 표시 */}
@@ -476,22 +544,8 @@ const FloorCanvasSvg = ({
               pointerEvents: edgeAddActive || isNodePickMode ? 'auto' : 'none',
               cursor: 'pointer',
             }}
-            onClick={(e) => {
-              if (isNodePickMode) {
-                e.stopPropagation();
-                onLightPick?.(n.id);
-                return;
-              }
-              if (!edgeAddActive) return;
-              e.stopPropagation();
-              onNodeClickForEdge(n.id);
-            }}
+            onClick={(e) => handleGraphNodeClick(e, n.id)}
           >
-            {/* 엣지 연결 모드·유도등 갈림길 선택 모드에선 작은 점을 정확히 겨냥하기 어려워,
-                넓은 투명 히트영역을 겹쳐 둔다 */}
-            {(edgeAddActive || isNodePickMode) && (
-              <circle cx={x} cy={y} r={13} fill="transparent" />
-            )}
             {/* 체인에 이미 골라둔 노드는 테두리로 강조해서 클릭했다는 걸 바로 알 수 있게 함 */}
             {edgeChainNodeIds.includes(n.id) && (
               <circle cx={x} cy={y} r={9} fill="none" stroke={vars.color.primary} strokeWidth="2" />
@@ -555,7 +609,6 @@ const FloorCanvasSvg = ({
         const isStair = n.type === 'stair';
         const baseColor = STRUCTURE_NODE_COLOR[n.type];
         const isLightPreview = !!lightPreviewNodeId && n.id === lightPreviewNodeId;
-        const isNodePickMode = lightPickField === 'decisionNode';
         // 왼쪽/오른쪽 통로(엣지)를 캔버스에서 고르는 중엔 노드는 고를 대상이 아닌데, 이 원이
         // 계속 클릭을 가로채고 있었음 — 엣지가 노드 바로 옆에 붙어있으면 SVG 상 나중에 그려지는
         // 이 노드 원이 클릭을 먼저 받아가서 엣지를 못 고르던 문제의 원인
@@ -572,32 +625,12 @@ const FloorCanvasSvg = ({
           <g
             key={n.id}
             onMouseDown={(e) => handleStructureMouseDown(e, n.id)}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isNodePickMode) {
-                onLightPick?.(n.id);
-                return;
-              }
-              if (edgeAddActive) {
-                onNodeClickForEdge(n.id);
-                return;
-              }
-              if (structureDragMovedRef.current) {
-                structureDragMovedRef.current = false;
-                return;
-              }
-              if (editingStructureId) return;
-              onZoneRefSelect({ kind: 'node', id: n.id });
-            }}
+            onClick={(e) => handleStructureNodeClick(e, n.id)}
             style={{
               cursor: isEditingThis ? 'grab' : 'pointer',
               pointerEvents: isZoneDragging || isEdgePickMode ? 'none' : 'auto',
             }}
           >
-            {/* 엣지 연결 모드에선 작은 점을 정확히 겨냥하기 어려워, 넓은 투명 히트영역을 겹쳐 둔다 */}
-            {edgeAddActive && !isEditingThis && (
-              <circle cx={n.x} cy={n.y} r={16} fill="transparent" />
-            )}
             {isSelected && (
               <circle
                 cx={n.x}
