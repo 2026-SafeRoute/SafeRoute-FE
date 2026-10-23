@@ -145,7 +145,11 @@ const TrainingCameraFramesPage = () => {
     }
   }, [frames]);
 
-  const { data: events = [] } = useSessionEventsQuery(sessionId, camera?.code, { live: isLive });
+  const {
+    data: events = [],
+    isError: isEventsError,
+    error: eventsError,
+  } = useSessionEventsQuery(sessionId, camera?.code, { live: isLive });
 
   // 진행 중일 때만 1초 단위로 이어서 증가시키고, 종료됐으면 서버가 마지막으로 준 값을 그대로 표시
   const tickingElapsed = useElapsedTrainingTime(isLive ? (session?.startedAt ?? null) : null);
@@ -506,7 +510,13 @@ const TrainingCameraFramesPage = () => {
 
             <div className={styles.panel}>
               <span className={styles.panelTitle}>이벤트 타임라인</span>
-              {events.length === 0 ? (
+              {isEventsError ? (
+                <EmptyState
+                  size="compact"
+                  title="이벤트를 불러오지 못했습니다"
+                  description={extractApiError(eventsError).message || '잠시 후 다시 시도해주세요'}
+                />
+              ) : events.length === 0 ? (
                 <EmptyState size="compact" title="기록된 이벤트가 없습니다" />
               ) : (
                 <ul className={styles.timelineList}>

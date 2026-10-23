@@ -15,7 +15,7 @@ export const VIEWABLE_SESSION_STATUSES = [
 ] as const satisfies readonly TrainingSessionStatus[];
 
 // 진행 중 훈련은 카메라 목록·프레임·이벤트를 이 주기로 다시 조회해 최신 프레임을 반영함
-export const LIVE_SESSION_POLL_INTERVAL_MS = 5000;
+export const LIVE_SESSION_POLL_INTERVAL_MS = 1000;
 
 export const isLiveSessionStatus = (status: TrainingSessionStatus | undefined) =>
   status === 'RUNNING';
