@@ -94,18 +94,18 @@ const toMonitoringFrame = (response: MonitoringFrameResponseExt): MonitoringFram
 
 const toMonitoringEvent = (response: MonitoringEventResponse): MonitoringEvent => {
   const { eventId, type, severity, occurredAt, cctvCode, congestionLevel, message } = response;
-  if (
-    !eventId ||
-    !type ||
-    !severity ||
-    occurredAt === undefined ||
-    !cctvCode ||
-    !congestionLevel ||
-    !message
-  ) {
+  if (!eventId || !type || !severity || occurredAt === undefined || !cctvCode || !message) {
     throw new Error('모니터링 이벤트 응답에 필수 필드가 누락되었습니다.');
   }
-  return { eventId, type, severity, occurredAt, cctvCode, congestionLevel, message };
+  return {
+    eventId,
+    type,
+    severity,
+    occurredAt,
+    cctvCode,
+    congestionLevel: congestionLevel ?? null,
+    message,
+  };
 };
 
 // 예약 상태(SCHEDULED)는 startedAt/endedAt이 원래 없어서 필수값에서 뺌 — status는 화면 분기의

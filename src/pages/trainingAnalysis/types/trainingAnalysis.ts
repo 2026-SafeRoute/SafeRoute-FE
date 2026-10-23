@@ -100,6 +100,7 @@ export interface MonitoringEvent {
   severity: MonitoringEventSeverity;
   occurredAt: number;
   cctvCode: string;
-  congestionLevel: CongestionLevel;
+  // AI 분석 시작처럼 혼잡도와 직접 관련 없는 이벤트는 null로 내려옴
+  congestionLevel: CongestionLevel | null;
   message: string;
 }
