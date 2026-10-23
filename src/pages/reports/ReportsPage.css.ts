@@ -1,13 +1,17 @@
 import { style } from '@vanilla-extract/css';
 
 import { vars } from '@styles/global.css';
+import { contentBreakpoints, pageContent } from '@styles/responsive.css';
 
-export const container = style({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: vars.space.s4,
-  padding: vars.space.s6,
-});
+export const container = style([
+  pageContent,
+  {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: vars.space.s4,
+    paddingBlock: vars.layout.pageGutter,
+  },
+]);
 
 export const toolbar = style({
   display: 'flex',
@@ -26,7 +30,7 @@ export const reportContent = style({
 
 export const reportHeader = style({
   display: 'flex',
-  alignItems: 'flex-end',
+  alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: vars.space.s8,
   border: `1px solid ${vars.color.gray100}`,
@@ -34,8 +38,8 @@ export const reportHeader = style({
   boxShadow: vars.shadow.card,
   backgroundColor: vars.color.white,
   padding: vars.space.s6,
-  '@media': {
-    'screen and (max-width: 960px)': {
+  '@container': {
+    [`(max-width: ${contentBreakpoints.wide})`]: {
       flexDirection: 'column',
       alignItems: 'flex-start',
     },
@@ -43,7 +47,7 @@ export const reportHeader = style({
 });
 
 export const reportTitleGroup = style({
-  flexShrink: 0,
+  minWidth: 0,
 });
 
 export const reportEyebrow = style({
@@ -60,27 +64,15 @@ export const reportTitle = style({
 export const reportMetaGrid = style({
   display: 'grid',
   flex: 1,
-  gridTemplateColumns: 'repeat(5, minmax(10rem, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))',
+  rowGap: vars.space.s4,
   width: '100%',
-  '@media': {
-    'screen and (max-width: 1200px)': {
-      gridTemplateColumns: 'repeat(3, minmax(12rem, 1fr))',
-      rowGap: vars.space.s4,
-    },
-    'screen and (max-width: 640px)': {
-      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    },
-  },
+  minWidth: 0,
 });
 
 export const reportMetaItem = style({
   borderLeft: `1px solid ${vars.color.gray100}`,
   padding: `0 ${vars.space.s4}`,
-  selectors: {
-    '&:first-child': {
-      borderLeft: 0,
-    },
-  },
 });
 
 export const reportMetaLabel = style({

@@ -114,7 +114,14 @@ const Modal = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div ref={modalRef} className={clsx(styles.container({ size }), className)} tabIndex={-1}>
+      <div
+        ref={modalRef}
+        className={clsx(
+          styles.container({ size: variant === 'confirm' && size === 'md' ? 'confirm' : size }),
+          className,
+        )}
+        tabIndex={-1}
+      >
         {variant === 'form' && (
           <div className={styles.header}>
             <div className={styles.headerText}>

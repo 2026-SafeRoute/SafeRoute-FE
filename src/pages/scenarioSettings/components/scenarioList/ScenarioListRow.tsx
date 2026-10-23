@@ -1,4 +1,3 @@
-import ScenarioListTooltip from '@pages/scenarioSettings/components/tooltip/ScenarioListTooltip';
 import { SCENARIO_STATUS_VIEW } from '@pages/scenarioSettings/types/scenarioList';
 import { formatScenarioScheduledAt } from '@pages/scenarioSettings/utils/scenarioSettings';
 
@@ -9,6 +8,7 @@ import TrashIcon from '@assets/icons/ic-trash.svg?react';
 
 import { Button } from '@components/Button';
 import StatusBadge from '@components/chip/StatusBadge';
+import Tooltip from '@components/tooltip/Tooltip';
 
 import * as styles from './ScenarioListRow.css';
 
@@ -81,9 +81,7 @@ const ScenarioListRow = ({
         {scenario.deletable ? (
           deleteButton
         ) : (
-          <ScenarioListTooltip content={DELETE_DISABLED_MESSAGE}>
-            {deleteButton}
-          </ScenarioListTooltip>
+          <Tooltip content={DELETE_DISABLED_MESSAGE}>{deleteButton}</Tooltip>
         )}
       </div>
     </article>

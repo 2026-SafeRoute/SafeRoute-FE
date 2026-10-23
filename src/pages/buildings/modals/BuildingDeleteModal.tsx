@@ -23,8 +23,8 @@ const BuildingDeleteModal = ({
     open={open}
     onClose={onClose}
     title="건물 삭제"
-    description={`정말로 '${building.name}'을(를) 삭제하시겠습니까?`}
-    warning="이 작업은 되돌릴 수 없습니다. 건물과 관련된 모든 도면 데이터가 영구적으로 삭제됩니다."
+    description={`'${building.name}' 건물을 삭제하시겠습니까?`}
+    warning={'건물과 관련된 모든 도면 데이터가 영구적으로 삭제됩니다.'}
     footer={
       <>
         <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>

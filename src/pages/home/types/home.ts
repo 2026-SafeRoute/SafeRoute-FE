@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import type { HOME_GRADE_BADGE_COLOR } from '@pages/home/constants/home';
 
+import type { SCENARIO_STATUS } from '@apis/scenarios/scenarioTypes';
 import type { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
 
 export type MetricIconTone = 'blue' | 'yellow' | 'green' | 'purple';
@@ -42,6 +43,8 @@ export interface RunningTrainingStatusResponse {
   elapsedSeconds: number;
   actualParticipants: number;
   currentSurvivalRate: number;
+  routeBlockedAt?: string | null;
+  routeBlockedAfterSec?: number | null;
 }
 
 export type HomeTrainingStatusResponse =
@@ -49,6 +52,7 @@ export type HomeTrainingStatusResponse =
   | RunningTrainingStatusResponse;
 
 export interface ScheduledTraining {
+  // READY에서는 시나리오 ID, 그 외에는 훈련 세션 ID.
   id: string;
   name: string;
   building: string;
@@ -56,5 +60,8 @@ export interface ScheduledTraining {
   time: string;
   participants: string;
   startedAt?: string;
-  status: typeof TRAINING_SESSION_STATUS.RUNNING | typeof TRAINING_SESSION_STATUS.SCHEDULED;
+  status:
+    | typeof SCENARIO_STATUS.READY
+    | typeof TRAINING_SESSION_STATUS.RUNNING
+    | typeof TRAINING_SESSION_STATUS.SCHEDULED;
 }

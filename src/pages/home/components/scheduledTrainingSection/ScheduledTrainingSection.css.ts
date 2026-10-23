@@ -14,12 +14,6 @@ export const scheduledCard = style([
   },
 ]);
 
-export const sectionHeader = style({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-});
-
 export const sectionTitleRow = style({
   display: 'flex',
   alignItems: 'center',
@@ -45,6 +39,7 @@ export const scheduleInfoPanel = style({
   borderRadius: '1.8rem',
   backgroundColor: vars.color.primaryLight2,
   padding: '1.8rem',
+  minWidth: 0,
 });
 
 export const subtleLabel = style({

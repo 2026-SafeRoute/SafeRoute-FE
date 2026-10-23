@@ -1,7 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
+import { useGetBuildingsQuery } from '@apis/buildings/useBuildingsQuery';
 import { extractApiError } from '@apis/errors/apiError';
+import { setScenarioInProgressCache } from '@apis/scenarios/scenarioCache';
+import { SCENARIO_STATUS } from '@apis/scenarios/scenarioTypes';
+import { useGetScenariosQuery } from '@apis/scenarios/useScenariosQuery';
 import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
 import { currentTrainingRouteQueryOptions } from '@apis/trainingSessions/useGetCurrentTrainingRouteQuery';
 import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTrainingSessionsQuery';
@@ -18,7 +22,12 @@ import TrendUpIcon from '@assets/icons/ic-trendup.svg?react';
 
 import useToast from '@components/toast/useToast';
 
-import { ROUTES, getReportPath, getTrainingCamerasPath } from '@constants/path';
+import {
+  ROUTES,
+  getReportPath,
+  getScenarioDetailPath,
+  getTrainingCamerasPath,
+} from '@constants/path';
 
 import { useGetDashboardStatsQuery } from './api/useDashboardStatsQuery';
 import { useGetDashboardTrainingsQuery } from './api/useDashboardTrainingsQuery';
@@ -27,7 +36,12 @@ import HomeSummarySection from './components/homeSummarySection/HomeSummarySecti
 import RecentTrainingSection from './components/recentTrainingSection/RecentTrainingSection';
 import ScheduledTrainingSection from './components/scheduledTrainingSection/ScheduledTrainingSection';
 import * as styles from './HomePage.css';
-import { toHomeMetrics, toScheduledTraining, toTrainingRecord } from './utils/home';
+import {
+  toHomeMetrics,
+  toReadyScenarioTraining,
+  toScheduledTraining,
+  toTrainingRecord,
+} from './utils/home';
 
 import type { HomeMetric } from './types/home';
 
@@ -50,6 +64,8 @@ const HomePage = () => {
   const { show } = useToast();
   const { data: stats } = useGetDashboardStatsQuery();
   const { data: trainings = [] } = useGetDashboardTrainingsQuery();
+  const { data: scenarios = [] } = useGetScenariosQuery();
+  const { data: buildings = [] } = useGetBuildingsQuery();
   const { data: runningSessions = [] } = useGetTrainingSessionsQuery(
     TRAINING_SESSION_STATUS.RUNNING,
   );
@@ -60,12 +76,25 @@ const HomePage = () => {
   const startTrainingSessionMutation = useStartTrainingSessionMutation();
   const selectedSession = runningSessions[0] ?? scheduledSessions[0];
   const { data: trainingStatus } = useGetTrainingStatusQuery(selectedSession?.sessionId);
-  const training = toScheduledTraining(selectedSession, trainingStatus);
+  const readyScenario = scenarios.find((scenario) => scenario.status === SCENARIO_STATUS.READY);
+  const readyBuildingName = buildings.find(
+    (building) => building.id === readyScenario?.buildingId,
+  )?.name;
+  const training = selectedSession
+    ? toScheduledTraining(selectedSession, trainingStatus)
+    : readyScenario
+      ? toReadyScenarioTraining(readyScenario, readyBuildingName)
+      : null;
   // 실시간 이벤트는 RUNNING 세션에만 필요하다. SCHEDULED 세션은 목록·상태 조회만 사용한다.
   useTrainingSessionSocket({ sessionId: runningSessions[0]?.sessionId });
 
   const handleTrainingAction = async () => {
     if (!training) return;
+
+    if (training.status === SCENARIO_STATUS.READY) {
+      void navigate(getScenarioDetailPath(training.id));
+      return;
+    }
 
     if (training.status === TRAINING_SESSION_STATUS.RUNNING) {
       // 훈련분석 개편으로 실시간 모니터링(TRAINING_MONITORING) 라우트는 제거됐지만,
@@ -84,6 +113,13 @@ const HomePage = () => {
       }
 
       await startTrainingSessionMutation.mutateAsync(training.id);
+      if (selectedSession?.scenarioId) {
+        setScenarioInProgressCache(
+          queryClient,
+          selectedSession.scenarioId,
+          scenarios.find((scenario) => scenario.id === selectedSession.scenarioId),
+        );
+      }
       show({ title: '훈련이 시작되었습니다.', variant: 'success' });
     } catch (error) {
       const serverMessage = extractApiError(error).message;
@@ -104,13 +140,6 @@ const HomePage = () => {
         />
 
         <div className={styles.contentGrid}>
-          <RecentTrainingSection
-            records={trainings.map(toTrainingRecord)}
-            actionIcon={sectionIcons.action}
-            onViewAll={() => void navigate(ROUTES.SCENARIO_LIST)}
-            onOpenReport={(reportId) => void navigate(getReportPath(reportId))}
-          />
-
           <div className={styles.sideColumn}>
             <ScheduledTrainingSection
               training={training}
@@ -120,6 +149,13 @@ const HomePage = () => {
               actionIcon={sectionIcons.play}
             />
           </div>
+
+          <RecentTrainingSection
+            records={trainings.map(toTrainingRecord)}
+            actionIcon={sectionIcons.action}
+            onViewAll={() => void navigate(ROUTES.SCENARIO_LIST)}
+            onOpenReport={(reportId) => void navigate(getReportPath(reportId))}
+          />
         </div>
       </div>
     </div>

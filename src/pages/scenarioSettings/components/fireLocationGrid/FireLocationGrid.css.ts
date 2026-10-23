@@ -2,6 +2,10 @@ import { style } from '@vanilla-extract/css';
 
 import { vars } from '@styles/global.css';
 
+export const container = style({
+  minWidth: 0,
+});
+
 export const panel = style({
   position: 'relative',
   display: 'flex',
@@ -25,6 +29,25 @@ export const map = style({
 export const route = style({
   fill: 'none',
   stroke: vars.color.success,
+  strokeDasharray: '7 5',
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  strokeWidth: 4,
+});
+
+export const initialRoute = style({
+  pointerEvents: 'none',
+  fill: 'none',
+  stroke: vars.color.success,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+  strokeWidth: 4,
+});
+
+export const recalculatedRoute = style({
+  pointerEvents: 'none',
+  fill: 'none',
+  stroke: vars.color.primary,
   strokeDasharray: '7 5',
   strokeLinecap: 'round',
   strokeLinejoin: 'round',
@@ -63,6 +86,36 @@ export const selectedFireMarker = style({
   fontSize: '14px',
   textAnchor: 'middle',
   dominantBaseline: 'middle',
+});
+
+export const routeExit = style({
+  pointerEvents: 'none',
+  fill: vars.color.success,
+  stroke: vars.color.white,
+  strokeWidth: 1.5,
+});
+
+export const unreachableExit = style({
+  pointerEvents: 'none',
+  fill: vars.color.gray300,
+  stroke: vars.color.white,
+  strokeWidth: 1.5,
+});
+
+export const unreachableExitMark = style({
+  pointerEvents: 'none',
+  fill: 'none',
+  stroke: vars.color.white,
+  strokeLinecap: 'round',
+  strokeWidth: 1.5,
+});
+
+export const undesignatedStair = style({
+  pointerEvents: 'none',
+  fill: vars.color.white,
+  stroke: vars.color.gray300,
+  strokeLinejoin: 'round',
+  strokeWidth: 2,
 });
 
 export const inactiveStartNode = style({

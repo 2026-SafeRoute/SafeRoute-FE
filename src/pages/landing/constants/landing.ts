@@ -18,25 +18,25 @@ interface LandingFeature {
 export const LANDING_FEATURES = [
   {
     title: '실시간 CCTV 모니터링',
-    description: 'AI 비전 분석을 통한 혼잡 밀집도와 실시간 추적',
+    description: 'AI 비전 분석을 통한 실시간 군중 밀집도 모니터링',
     Icon: CameraIcon,
     tone: 'blue',
   },
   {
-    title: 'IoT 센서 통합',
-    description: '유동률 점검 상태와 환경 모니터링 시스템 연동',
+    title: 'IoT 유도등 연동',
+    description: '도면에 유도등을 등록하고 대피 안내 방향 관리',
     Icon: WifiIcon,
     tone: 'purple',
   },
   {
     title: 'AI 기반 경로 분석',
-    description: '기존 대피 경로 분석 및 신규 권장 경로 산정',
+    description: '혼잡 상황에 따른 대피 경로 재탐색 및 권장 경로 검토',
     Icon: MapIcon,
     tone: 'green',
   },
   {
-    title: '디지털 트윈 맵',
-    description: '3D 건물 모델 기반 실시간 상황 공유 가시화',
+    title: '도면 기반 훈련 설정',
+    description: '층별 도면과 발화 위치를 바탕으로 훈련 시나리오 구성',
     Icon: LayersIcon,
     tone: 'yellow',
   },

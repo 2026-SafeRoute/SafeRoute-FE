@@ -57,19 +57,29 @@ export const useTrainingSessionSocket = ({
 
             if (event.sessionId !== sessionId) return;
 
-            // 상태 변경 시 세션·홈 상태·시나리오를 다시 조회해 서버 상태와 동기화
-            if (event.eventType === TRAINING_EVENT_TYPE.STATUS_UPDATED) {
-              void Promise.all([
-                queryClient.invalidateQueries({
-                  queryKey: trainingSessionQueryKeys.lists(),
-                }),
+            // 상태 변경 또는 경로 차단 시 홈 상태를 다시 조회해 새 서버 필드를 복원 가능하게 한다.
+            if (
+              event.eventType === TRAINING_EVENT_TYPE.STATUS_UPDATED ||
+              event.eventType === TRAINING_EVENT_TYPE.EVACUATION_ROUTE_BLOCKED
+            ) {
+              const invalidations = [
                 queryClient.invalidateQueries({
                   queryKey: dashboardQueryKeys.trainingStatus(sessionId),
                 }),
-                queryClient.invalidateQueries({
-                  queryKey: scenarioQueryKeys.all,
-                }),
-              ]);
+              ];
+
+              if (event.eventType === TRAINING_EVENT_TYPE.STATUS_UPDATED) {
+                invalidations.push(
+                  queryClient.invalidateQueries({
+                    queryKey: trainingSessionQueryKeys.lists(),
+                  }),
+                  queryClient.invalidateQueries({
+                    queryKey: scenarioQueryKeys.all,
+                  }),
+                );
+              }
+
+              void Promise.all(invalidations);
             }
 
             onEventRef.current?.(event);

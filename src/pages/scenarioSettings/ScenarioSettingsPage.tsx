@@ -20,17 +20,26 @@ import EmptyState from '@components/empty';
 import LoadingState from '@components/loadingState';
 import useToast from '@components/toast/useToast';
 
-import { ROUTES, getReportPath, getScenarioDetailPath } from '@constants/path';
+import {
+  ROUTES,
+  getFloorPlanDetailPath,
+  getReportPath,
+  getScenarioDetailPath,
+} from '@constants/path';
 
+import { useScenarioRouteDiagnosisQuery } from './api/routeDiagnosis/routeDiagnosisQueries';
+import AlternativeRouteStartModal from './components/alternativeRouteStartModal/AlternativeRouteStartModal';
 import ScenarioActionPanel from './components/scenarioActionPanel/ScenarioActionPanel';
 import ScenarioSetupForm from './components/scenarioSetupForm/ScenarioSetupForm';
 import TrainingControlPanel from './components/trainingControlPanel/TrainingControlPanel';
 import TrainingEndModal from './components/trainingEndModal/TrainingEndModal';
 import TrainingForceEndModal from './components/trainingForceEndModal/TrainingForceEndModal';
+import { PREVIEW_STATUS, PREVIEW_WARNING_STATUS } from './constants/scenarioSettings';
 import { useScenarioFloorView } from './hooks/useScenarioFloorView';
 import { useScenarioForm } from './hooks/useScenarioForm';
 import { useScenarioTraining } from './hooks/useScenarioTraining';
 import * as styles from './ScenarioSettingsPage.css';
+import { getRouteDiagnosisMetrics } from './utils/scenarioSettings';
 
 import type { ScenarioActionMode } from './components/scenarioActionPanel/ScenarioActionPanel';
 
@@ -109,6 +118,7 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
   const [hasEndedSession, setHasEndedSession] = useState(false);
   const [isTrainingCompleted, setIsTrainingCompleted] = useState(false);
   const [generatedReportId, setGeneratedReportId] = useState<string | null>(null);
+  const [isAlternativeRouteModalOpen, setIsAlternativeRouteModalOpen] = useState(false);
 
   const isCreatePage = scenario === undefined;
   const isDraft = scenario?.status === SCENARIO_STATUS.DRAFT;
@@ -132,9 +142,25 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
     routeFloorId: training.route.routeFloorId,
     routePoints: training.route.routePoints,
   });
+  const routeDiagnosisQuery = useScenarioRouteDiagnosisQuery(
+    scenario?.id,
+    isScenarioReady && floorView.isConfigured && !training.isRunning,
+  );
+  const hasUnsavedBuildingChange = Boolean(
+    scenario && scenarioForm.selectedBuildingId !== (scenario.buildingId ?? ''),
+  );
 
   const canStartTraining =
     isScenarioReady && floorView.isConfigured && !floorView.floorMap.statusMessage;
+  const routeDiagnosis = routeDiagnosisQuery.data;
+  // 대체 경로 부재 여부
+  const hasNoAlternativeRoute = routeDiagnosis?.hasAlternativeRoute === false;
+  const diagnosisMetrics = routeDiagnosis ? getRouteDiagnosisMetrics(routeDiagnosis) : [];
+  const diagnosisFloorId = routeDiagnosis?.floorId ?? floorView.selectedFloorId;
+  const floorPlanPath =
+    scenario?.buildingId && diagnosisFloorId
+      ? getFloorPlanDetailPath(scenario.buildingId, diagnosisFloorId)
+      : undefined;
   const startRestrictionMessage = getStartRestrictionMessage({
     scenario,
     isSetupPending: floorView.isSetupPending,
@@ -242,6 +268,14 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
     }
   };
 
+  const handleStartRequest = () => {
+    if (hasNoAlternativeRoute) {
+      setIsAlternativeRouteModalOpen(true);
+      return;
+    }
+    void handleStartTraining();
+  };
+
   const routedTimedOutSessionId =
     navigationState &&
     typeof navigationState === 'object' &&
@@ -257,7 +291,7 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
     setIsEndModalOpen(true);
     show({
       title: '최대 훈련 시간이 초과되었습니다.',
-      description: '생존 인원을 입력해 분석 보고서를 생성해 주세요.',
+      description: '대피 완료 인원을 입력해 분석 보고서를 생성해 주세요.',
       variant: 'default',
     });
   }, [show, timeLimitSessionId]);
@@ -333,16 +367,24 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
   const handleRejectRouteProposal = async () => {
     try {
       await training.route.rejectRouteProposal();
-    } catch {
-      show({ title: '경로 변경 제안 거부에 실패했습니다.', variant: 'error' });
+    } catch (error) {
+      show({
+        title: '경로 변경 제안 거부에 실패했습니다.',
+        description: getActionErrorMessage(error, '잠시 후 다시 시도해 주세요.'),
+        variant: 'error',
+      });
     }
   };
 
   const handleApplyRouteProposal = async () => {
     try {
       await training.route.approveRouteProposal();
-    } catch {
-      show({ title: '경로 변경 제안 승인에 실패했습니다.', variant: 'error' });
+    } catch (error) {
+      show({
+        title: '경로 변경 제안 승인에 실패했습니다.',
+        description: getActionErrorMessage(error, '잠시 후 다시 시도해 주세요.'),
+        variant: 'error',
+      });
     }
   };
 
@@ -370,11 +412,15 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
             configured: floorView.isConfigured,
             canSave: floorView.canSaveSetup,
             isSaving: floorView.isSavingSetup || training.isScheduling,
+            blockedMessage: hasUnsavedBuildingChange
+              ? '변경한 건물을 먼저 저장한 뒤 발화 위치와 시작 지점을 설정해 주세요.'
+              : undefined,
             onFloorChange: floorView.chooseFloor,
             onFireCellSelect: floorView.chooseFireCell,
             onStartNodeSelect: floorView.chooseStartNode,
             onSave: () => void handleSaveEvacuationSetup(),
           }}
+          routeDiagnosis={routeDiagnosis}
         />
 
         {training.isRunning && training.startedAt !== null ? (
@@ -399,7 +445,7 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
           <ScenarioActionPanel
             mode={actionMode}
             isSavingDraft={createDraftMutation.isPending || updateScenarioMutation.isPending}
-            isCompleting={isCompleting}
+            isCompleting={isCompleting || (actionMode === 'start' && routeDiagnosisQuery.isLoading)}
             showDraftSave={isCreatePage || isDraft}
             completeLabel={isScenarioReady ? '변경 저장' : '다음'}
             startState={{
@@ -412,11 +458,21 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
               showPreview: canStartTraining,
               canEdit: isScenarioReady,
               metrics: floorView.previewMetrics,
+              previewStatus: hasNoAlternativeRoute ? PREVIEW_WARNING_STATUS : PREVIEW_STATUS,
+              diagnosisMetrics,
+              previewDescription:
+                routeDiagnosis && (routeDiagnosis.recalculationCount ?? 0) > 0
+                  ? '관리자가 재탐색을 바로 승인한다고 가정한 예상이에요.'
+                  : undefined,
+              warningMessage: hasNoAlternativeRoute
+                ? '화재가 안내 경로에 닿으면 돌아갈 길이 없어요. 시작 전에 도면의 엣지와 탈출구를 확인해 주세요.'
+                : undefined,
+              floorPlanPath,
             }}
             handlers={{
               onSaveDraft: () => void handleSaveDraft(),
               onComplete: () => void handleComplete(),
-              onStart: () => void handleStartTraining(),
+              onStart: handleStartRequest,
               onEdit: () => setIsEditing(true),
             }}
           />
@@ -445,6 +501,16 @@ const ScenarioSettingsContent = ({ scenario }: ScenarioSettingsContentProps) => 
         isSubmitting={training.isForceEnding}
         onClose={() => setIsForceEndModalOpen(false)}
         onConfirm={() => void handleForceEndTraining()}
+      />
+      <AlternativeRouteStartModal
+        open={isAlternativeRouteModalOpen}
+        isStarting={training.isStarting}
+        onClose={() => setIsAlternativeRouteModalOpen(false)}
+        onConfirm={() => {
+          setIsAlternativeRouteModalOpen(false);
+          void handleStartTraining();
+        }}
+        floorPlanPath={floorPlanPath}
       />
     </div>
   );

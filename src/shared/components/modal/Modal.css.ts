@@ -11,6 +11,7 @@ export const overlay = style({
   alignItems: 'center',
   justifyContent: 'center',
   backgroundColor: 'rgba(16, 24, 40, 0.45)',
+  padding: vars.space.s4,
 });
 
 export const container = recipe({
@@ -30,6 +31,11 @@ export const container = recipe({
       sm: { maxWidth: '40rem' },
       md: { maxWidth: '54rem' },
       lg: { maxWidth: '72rem' },
+      confirm: {
+        width: 'max-content',
+        minWidth: 'min(40rem, 100%)',
+        maxWidth: 'min(64rem, 100%)',
+      },
     },
   },
   defaultVariants: { size: 'md' },
@@ -42,13 +48,14 @@ export const header = style({
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: vars.space.s4,
-  padding: `${vars.space.s8} ${vars.space.s8} ${vars.space.s4}`,
+  padding: `clamp(1.6rem, 4vw, 2.4rem) clamp(1.6rem, 4vw, 2.4rem) ${vars.space.s4}`,
 });
 
 export const headerText = style({
   display: 'flex',
   flexDirection: 'column',
   gap: '0.6rem',
+  minWidth: 0,
 });
 
 export const title = style({
@@ -84,7 +91,7 @@ export const closeButton = style({
 
 export const body = style({
   flex: 1,
-  padding: `0 ${vars.space.s8} ${vars.space.s6}`,
+  padding: `0 clamp(1.6rem, 4vw, 2.4rem) ${vars.space.s6}`,
   overflowY: 'auto',
   selectors: {
     '&::-webkit-scrollbar': { display: 'none' },
@@ -95,10 +102,9 @@ export const body = style({
 export const footer = style({
   display: 'grid',
   flexShrink: 0,
-  gridAutoColumns: '1fr',
-  gridAutoFlow: 'column',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 16rem), 1fr))',
   gap: vars.space.s3,
-  padding: `${vars.space.s4} ${vars.space.s8} ${vars.space.s8}`,
+  padding: `${vars.space.s4} clamp(1.6rem, 4vw, 2.4rem) clamp(1.6rem, 4vw, 2.4rem)`,
 });
 
 // confirm 모달 (X 없음)
@@ -106,7 +112,10 @@ export const confirmBody = style({
   display: 'flex',
   flexDirection: 'column',
   gap: vars.space.s3,
-  padding: `${vars.space.s8} ${vars.space.s8} ${vars.space.s6}`,
+  padding: `clamp(1.6rem, 4vw, 2.4rem) clamp(1.6rem, 4vw, 2.4rem) ${vars.space.s2}`,
+  overflowWrap: 'anywhere',
+  whiteSpace: 'pre-line',
+  wordBreak: 'keep-all',
 });
 
 export const confirmTitle = style({

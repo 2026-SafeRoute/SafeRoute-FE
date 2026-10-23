@@ -63,7 +63,7 @@ interface FloorSyncTarget {
 
 const BuildingsPage = () => {
   const queryClient = useQueryClient();
-  const { data, isLoading, isError } = useGetBuildingsQuery();
+  const { data, isLoading, isError, refetch } = useGetBuildingsQuery();
   const { data: myProfile } = useMyProfileQuery();
   const createBuildingMutation = useCreateBuildingMutation();
   const updateBuildingMutation = useUpdateBuildingMutation();
@@ -205,7 +205,18 @@ const BuildingsPage = () => {
 
         {isLoading && <LoadingState />}
 
-        {isError && <p className={styles.errorMessage}>건물 목록을 불러오지 못했습니다.</p>}
+        {isError && (
+          <EmptyState
+            className={styles.emptyState}
+            icon={<BuildingIcon />}
+            title="건물 목록을 불러오지 못했습니다."
+            action={
+              <Button type="button" variant="ghost" onClick={() => void refetch()}>
+                다시 시도
+              </Button>
+            }
+          />
+        )}
 
         {!isLoading && !isError && buildings.length === 0 && (
           <EmptyState

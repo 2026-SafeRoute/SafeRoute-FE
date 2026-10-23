@@ -1,9 +1,7 @@
 ---
 name: 버그 리포트 Issue 템플릿
 about: 버그 리포트 Issue 생성 템플릿입니다.
-title: '[bug/fix] '
-labels: bug
-assignees: ''
+title: '[bug] '
 ---
 
 ## 🐛 버그 설명
@@ -25,5 +23,3 @@ assignees: ''
 ## 📸 스크린샷
 
 <!-- 해당하는 경우 스크린샷을 첨부해주세요. -->
-
-<!-- ‼️우측 패널에서 Assignees, Labels를 설정해주세요‼️ -->

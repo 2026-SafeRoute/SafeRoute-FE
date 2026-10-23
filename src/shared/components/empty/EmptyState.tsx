@@ -10,19 +10,54 @@ export type EmptyStateProps = {
   icon?: ReactNode;
   action?: ReactNode;
   className?: string;
+  size?: 'default' | 'compact';
+  tone?: 'light' | 'dark';
 };
 
-const EmptyState = ({ title, description, icon, action, className }: EmptyStateProps) => (
-  <div className={clsx(styles.container, className)}>
+const EmptyState = ({
+  title,
+  description,
+  icon,
+  action,
+  className,
+  size = 'default',
+  tone = 'light',
+}: EmptyStateProps) => (
+  <div className={clsx(styles.container, size === 'compact' && styles.containerCompact, className)}>
     {icon ? (
-      <span className={styles.icon} aria-hidden="true">
+      <span
+        className={clsx(
+          styles.icon,
+          size === 'compact' && styles.iconCompact,
+          tone === 'dark' && styles.iconDark,
+        )}
+        aria-hidden="true"
+      >
         {icon}
       </span>
     ) : null}
 
     <div className={styles.text}>
-      <strong className={styles.title}>{title}</strong>
-      {description ? <p className={styles.description}>{description}</p> : null}
+      <strong
+        className={clsx(
+          styles.title,
+          size === 'compact' && styles.titleCompact,
+          tone === 'dark' && styles.titleDark,
+        )}
+      >
+        {title}
+      </strong>
+      {description ? (
+        <p
+          className={clsx(
+            styles.description,
+            size === 'compact' && styles.descriptionCompact,
+            tone === 'dark' && styles.descriptionDark,
+          )}
+        >
+          {description}
+        </p>
+      ) : null}
     </div>
 
     {action}

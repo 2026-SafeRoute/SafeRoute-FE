@@ -19,6 +19,8 @@ export interface Cctv {
   x: number;
   y: number;
   enabled: boolean;
+  /** CCTV 등록 시 함께 생성되는 CUSTOM 타입 위치 노드. 삭제 시 서버가 cascade로 안 지워줘서 FE가 직접 정리해야 함 */
+  customNodeId: string | null;
   /** 이 CCTV가 등록될 때 층에 설정돼 있던 그리드 배율(cm). 층 배율 조회 API가 없어서 이 값으로 역추적함 */
   gridCellSizeMeter: number | null;
   monitoredGridCellCount: number;
@@ -55,6 +57,7 @@ export const toCctv = (response: CctvResponse): Cctv => {
     x,
     y,
     enabled: response.enabled ?? false,
+    customNodeId: response.customNodeId ?? null,
     gridCellSizeMeter: response.gridCellSizeMeter ?? null,
     monitoredGridCellCount: response.monitoredGridCellCount ?? 0,
     monitoredAreaM2: response.monitoredAreaM2 ?? 0,

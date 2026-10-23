@@ -4,12 +4,13 @@ import { vars } from '@styles/global.css';
 
 export const container = style({
   display: 'flex',
+  flexWrap: 'wrap',
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: vars.space.s4,
   borderBottom: `1px solid ${vars.color.gray100}`,
   backgroundColor: vars.color.white,
-  padding: `${vars.space.s6} ${vars.space.s8}`,
+  padding: `${vars.space.s6} ${vars.layout.pageGutter}`,
   width: '100%',
 });
 
@@ -17,6 +18,7 @@ export const left = style({
   display: 'flex',
   flexDirection: 'column',
   gap: '0.6rem',
+  minWidth: 0,
 });
 
 export const breadcrumb = style({

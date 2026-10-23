@@ -1,6 +1,7 @@
 import { globalStyle, style, styleVariants } from '@vanilla-extract/css';
 
 import { vars } from '@styles/global.css';
+import { cardGrid, contentBreakpoints } from '@styles/responsive.css';
 
 import { sectionCardBase } from '../../HomePage.css';
 
@@ -11,11 +12,17 @@ const summaryCardBase = style([
   },
 ]);
 
-export const summaryGrid = style({
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-  gap: vars.space.s4,
-});
+// 지표가 3 + 1로 고아 카드처럼 남는 구간은 균형 잡힌 2 × 2로 묶는다.
+export const summaryGrid = style([
+  cardGrid,
+  {
+    '@container': {
+      [`(max-width: ${contentBreakpoints.wide})`]: {
+        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+      },
+    },
+  },
+]);
 
 export const metricCard = style([
   summaryCardBase,

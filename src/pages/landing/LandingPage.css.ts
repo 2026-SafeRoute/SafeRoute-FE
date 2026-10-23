@@ -126,27 +126,7 @@ export const primaryCta = style([
   },
 ]);
 
-export const secondaryCta = style([
-  ctaBase,
-  {
-    border: `1px solid ${vars.color.gray100}`,
-    backgroundColor: vars.color.white,
-    color: vars.color.gray500,
-
-    selectors: {
-      '&:hover': {
-        backgroundColor: vars.color.gray25,
-      },
-    },
-  },
-]);
-
 globalStyle(`${primaryCta} svg`, {
-  width: vars.space.s4,
-  height: vars.space.s4,
-});
-
-globalStyle(`${secondaryCta} svg`, {
   width: vars.space.s4,
   height: vars.space.s4,
 });
@@ -248,14 +228,4 @@ export const footer = style({
   minHeight: vars.space.s14,
   color: vars.color.textLow,
   ...vars.typography.captionMedium,
-});
-
-export const footerLinks = style({
-  display: 'flex',
-  alignItems: 'center',
-  gap: vars.space.s1,
-});
-
-globalStyle(`${footerLinks} a:hover`, {
-  color: vars.color.gray500,
 });

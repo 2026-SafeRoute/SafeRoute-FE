@@ -28,8 +28,13 @@ export const container = recipe({
     border: '1px solid',
     borderRadius: vars.radius.xl,
     boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-    padding: `${vars.space.s4} ${vars.space.s4} ${vars.space.s6} ${vars.space.s4}`,
-    width: '34rem',
+    // 하단에 진행바(progressBar, 0.3rem 높이)가 absolute로 깔려서 다른 변보다 여백을 더
+    // 줬었는데(s6→s5로 줄였다가), 1.6rem(s4)이면 0.3rem 진행바를 가리지 않으면서도 네 변이
+    // 전부 동일해 더는 비대칭으로 안 보임
+    padding: vars.space.s4,
+    width: 'max-content',
+    minWidth: 'min(34rem, calc(100vw - 4.8rem))',
+    maxWidth: 'min(42rem, calc(100vw - 4.8rem))',
     overflow: 'hidden',
     animationFillMode: 'forwards',
   },
@@ -64,8 +69,14 @@ export const container = recipe({
         animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
+    wide: {
+      true: {
+        maxWidth: 'min(64rem, calc(100vw - 4.8rem))',
+      },
+      false: {},
+    },
   },
-  defaultVariants: { variant: 'default', leaving: false },
+  defaultVariants: { variant: 'default', leaving: false, wide: false },
 });
 
 export const iconWrapper = recipe({
@@ -91,6 +102,9 @@ export const body = style({
   flex: 1,
   flexDirection: 'column',
   gap: '0.4rem',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
+  wordBreak: 'keep-all',
 });
 
 export const title = recipe({
@@ -114,6 +128,7 @@ export const description = recipe({
   base: {
     lineHeight: '1.5',
     letterSpacing: '-0.02em',
+    whiteSpace: 'pre-line',
     fontSize: '1.3rem',
   },
   variants: {
@@ -123,8 +138,13 @@ export const description = recipe({
       warning: { color: vars.color.warningText },
       error: { color: vars.color.dangerText },
     },
+    noWrap: {
+      // 긴 시나리오명 등으로 최대 너비를 넘으면 말줄임으로 자름
+      true: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      false: {},
+    },
   },
-  defaultVariants: { variant: 'default' },
+  defaultVariants: { variant: 'default', noWrap: false },
 });
 
 export const actionButton = recipe({

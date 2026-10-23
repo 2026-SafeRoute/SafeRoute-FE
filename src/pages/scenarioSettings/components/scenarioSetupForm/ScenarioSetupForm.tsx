@@ -2,10 +2,16 @@ import FireLocationGrid from '@pages/scenarioSettings/components/fireLocationGri
 import DateTimeField from '@pages/scenarioSettings/components/inputField/dateTimeField/DateTimeField';
 import ScenarioField from '@pages/scenarioSettings/components/inputField/scenarioField/ScenarioField';
 import type { ScenarioFieldOption } from '@pages/scenarioSettings/components/inputField/scenarioField/ScenarioField';
-import { FIRE_SPREAD_OPTIONS } from '@pages/scenarioSettings/constants/scenarioSettings';
+import {
+  FIRE_SPREAD_OPTIONS,
+  SCENARIO_NAME_MAX_LENGTH,
+  SCENARIO_NAME_MIN_LENGTH,
+} from '@pages/scenarioSettings/constants/scenarioSettings';
 import type { ScenarioFloorMapView } from '@pages/scenarioSettings/hooks/useScenarioFloorView';
 import * as pageStyles from '@pages/scenarioSettings/ScenarioSettingsPage.css';
 import type { BasicInfo } from '@pages/scenarioSettings/types/scenarioSettings';
+
+import type { ScenarioRouteDiagnosisResponse } from '@apis/__generated__/data-contracts';
 
 import UsersIcon from '@assets/icons/ic-multi-user.svg?react';
 
@@ -38,6 +44,7 @@ interface EvacuationSetupControl {
   configured: boolean;
   canSave: boolean;
   isSaving: boolean;
+  blockedMessage?: string;
   onFloorChange: (floorId: string) => void;
   onFireCellSelect: (cellId: string) => void;
   onStartNodeSelect: (nodeId: string) => void;
@@ -51,6 +58,7 @@ interface ScenarioSetupFormProps {
   mode: ScenarioSetupMode;
   handlers: ScenarioSetupHandlers;
   evacuationSetup: EvacuationSetupControl;
+  routeDiagnosis?: ScenarioRouteDiagnosisResponse;
 }
 
 const TRAINING_LOCK_MESSAGE = '🔒 잠금 · 훈련 중 수정 불가';
@@ -112,6 +120,7 @@ const ScenarioSetupForm = ({
   mode,
   handlers,
   evacuationSetup,
+  routeDiagnosis,
 }: ScenarioSetupFormProps) => {
   const { basicInfo, fireSpreadLabel } = value;
   const { isRunning, readOnly, buildingReadOnly } = mode;
@@ -130,6 +139,11 @@ const ScenarioSetupForm = ({
     hasStartCandidates: floorMap.hasStartCandidates,
     isMapUnavailable,
   });
+  const scenarioNameLength = basicInfo.scenarioName.trim().length;
+  const scenarioNameError =
+    scenarioNameLength > 0 && scenarioNameLength < SCENARIO_NAME_MIN_LENGTH
+      ? `시나리오명은 ${SCENARIO_NAME_MIN_LENGTH}~${SCENARIO_NAME_MAX_LENGTH}자로 입력해 주세요.`
+      : undefined;
 
   return (
     <div className={styles.container}>
@@ -144,6 +158,8 @@ const ScenarioSetupForm = ({
             label="시나리오명"
             value={basicInfo.scenarioName}
             placeholder="시나리오명을 입력하세요"
+            maxLength={SCENARIO_NAME_MAX_LENGTH}
+            errorMessage={scenarioNameError}
             readOnly={readOnly}
             disabled={isRunning}
             onChange={(event) => onBasicInfoChange('scenarioName', event.target.value)}
@@ -165,13 +181,15 @@ const ScenarioSetupForm = ({
           />
           <TextField
             label="예상 참가 인원"
-            type="number"
+            inputMode="numeric"
             value={basicInfo.expectedParticipants}
             placeholder="예상 참가 인원을 입력하세요"
             leftIcon={<UsersIcon />}
             readOnly={readOnly}
             disabled={isRunning}
-            onChange={(event) => onBasicInfoChange('expectedParticipants', event.target.value)}
+            onChange={(event) =>
+              onBasicInfoChange('expectedParticipants', event.target.value.replace(/\D/g, ''))
+            }
           />
         </div>
       </section>
@@ -246,33 +264,48 @@ const ScenarioSetupForm = ({
                 </div>
               </div>
             </div>
-            <FireLocationGrid
-              imageUrl={floorMap.imageUrl}
-              graph={floorMap.graph}
-              gridCells={floorMap.gridCells}
-              routePoints={floorMap.routePoints}
-              fireCellIds={floorMap.fireCellIds}
-              originCellId={floorMap.originCellId}
-              selectedFireCellId={floorMap.selectedFireCellId}
-              selectedStartNodeId={floorMap.selectedStartNodeId}
-              persistedStartNodeId={evacuationSetup.persistedStartNodeId}
-              statusMessage={floorMap.statusMessage}
-              disabled={!evacuationSetup.editable || evacuationSetup.configured || isRunning}
-              startSelectionDisabled={!hasFireLocation}
-              onFireCellSelect={evacuationSetup.onFireCellSelect}
-              onStartNodeSelect={evacuationSetup.onStartNodeSelect}
-            />
+            <div className={styles.setupMapWrapper}>
+              <FireLocationGrid
+                imageUrl={floorMap.imageUrl}
+                graph={floorMap.graph}
+                gridCells={floorMap.gridCells}
+                routePoints={floorMap.routePoints}
+                routeDiagnosis={isRunning ? undefined : routeDiagnosis}
+                fireCellIds={floorMap.fireCellIds}
+                originCellId={floorMap.originCellId}
+                selectedFireCellId={floorMap.selectedFireCellId}
+                selectedStartNodeId={floorMap.selectedStartNodeId}
+                persistedStartNodeId={evacuationSetup.persistedStartNodeId}
+                statusMessage={floorMap.statusMessage}
+                disabled={
+                  !evacuationSetup.editable ||
+                  evacuationSetup.configured ||
+                  isRunning ||
+                  Boolean(evacuationSetup.blockedMessage)
+                }
+                startSelectionDisabled={!hasFireLocation}
+                onFireCellSelect={evacuationSetup.onFireCellSelect}
+                onStartNodeSelect={evacuationSetup.onStartNodeSelect}
+              />
+              {evacuationSetup.blockedMessage && (
+                <div className={styles.setupMapBlocker} role="status">
+                  <p className={styles.setupMapBlockerMessage}>{evacuationSetup.blockedMessage}</p>
+                </div>
+              )}
+            </div>
 
             {evacuationSetup.configured && (
               <p className={styles.setupNotice}>
-                설정이 저장되었습니다. 변경하려면 새 시나리오를 만들어 주세요.
+                설정이 저장되었습니다.
+                <br />
+                변경하려면 새 시나리오를 만들어 주세요.
               </p>
             )}
             {evacuationSetup.editable && !evacuationSetup.configured && (
               <Button
                 type="button"
                 className={styles.setupButton}
-                disabled={!evacuationSetup.canSave}
+                disabled={!evacuationSetup.canSave || Boolean(evacuationSetup.blockedMessage)}
                 isLoading={evacuationSetup.isSaving}
                 onClick={evacuationSetup.onSave}
               >

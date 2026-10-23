@@ -16,6 +16,8 @@ interface PanelRect {
 }
 
 const PANEL_GAP = 4;
+const PANEL_VIEWPORT_INSET = 16;
+const PANEL_MIN_WIDTH = 180;
 // 옵션이 많을 때 패널이 화면 아래로 무한정 늘어나지 않도록 잡아두는 상한 — 트리거 위/아래
 // 여유 공간이 이보다 넓으면 이 값을, 좁으면 실제 여유 공간을 그대로 씀(아래 계산 참고)
 const PANEL_MAX_HEIGHT_CAP = 280;
@@ -79,10 +81,17 @@ const Dropdown = <T extends string = string>({
       const openUpward = spaceBelow < PANEL_FLIP_THRESHOLD && spaceAbove > spaceBelow;
       const availableSpace = openUpward ? spaceAbove : spaceBelow;
       const maxHeight = Math.max(120, Math.min(PANEL_MAX_HEIGHT_CAP, availableSpace));
+      const width = Math.min(
+        Math.max(PANEL_MIN_WIDTH, rect.width),
+        window.innerWidth - PANEL_VIEWPORT_INSET * 2,
+      );
       setPanelRect({
         top: openUpward ? rect.top - PANEL_GAP - maxHeight : rect.bottom + PANEL_GAP,
-        left: rect.left,
-        width: rect.width,
+        left: Math.max(
+          PANEL_VIEWPORT_INSET,
+          Math.min(rect.left, window.innerWidth - PANEL_VIEWPORT_INSET - width),
+        ),
+        width,
         maxHeight,
       });
     };

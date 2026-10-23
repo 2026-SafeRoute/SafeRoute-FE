@@ -44,21 +44,13 @@ const CameraCard = ({ camera, currentState, onClick }: CameraCardProps) => {
 
   // [촬영용] stale(갱신 지연) 판정만 무시 — 서버 stale/lastDetectedAt이 REST 폴링과 WS 사이에서
   // 계속 엇갈려 '갱신 지연' ↔ 혼잡 배지가 5초 주기로 깜빡였음. 혼잡 단계 값이 오면 그대로 보여주고,
-  // 아직 값이 없을 때만 '정보 없음'을 표시한다. 원복: 아래 주석 처리된 원본 로직(stale 조건 포함)으로.
+  // 아직 값이 없을 때만 '정보 없음'을 표시한다.
   const congestionBadge = !currentState?.congestionLevel
     ? { label: '정보 없음', color: 'neutral' as const }
     : {
         label: CONGESTION_LEVEL_LABEL[currentState.congestionLevel],
         color: CONGESTION_BADGE_COLOR[currentState.congestionLevel],
       };
-  // 원본:
-  // const congestionBadge =
-  //   currentState?.stale || !currentState?.congestionLevel
-  //     ? { label: currentState?.stale ? '갱신 지연' : '정보 없음', color: 'neutral' as const }
-  //     : {
-  //         label: CONGESTION_LEVEL_LABEL[currentState.congestionLevel],
-  //         color: CONGESTION_BADGE_COLOR[currentState.congestionLevel],
-  //       };
 
   return (
     <button type="button" className={styles.card} onClick={() => onClick(camera)}>

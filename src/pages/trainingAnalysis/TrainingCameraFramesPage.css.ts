@@ -1,23 +1,26 @@
 import { style } from '@vanilla-extract/css';
 
 import { vars } from '@styles/global.css';
+import { contentBreakpoints, pageContent } from '@styles/responsive.css';
 
-export const container = style({
-  display: 'flex',
-  flex: 1,
-  flexDirection: 'column',
-  gap: vars.space.s4,
-  padding: vars.space.s8,
-  paddingTop: vars.space.s4,
-  overflow: 'auto',
-  // 스크롤은 그대로 되지만 오른쪽 스크롤바만 안 보이게 함
-  scrollbarWidth: 'none',
-  selectors: {
-    '&::-webkit-scrollbar': {
-      display: 'none',
+export const container = style([
+  pageContent,
+  {
+    display: 'flex',
+    flex: 1,
+    flexDirection: 'column',
+    gap: vars.space.s4,
+    paddingBlock: `${vars.space.s4} ${vars.layout.pageGutter}`,
+    overflow: 'auto',
+    // 스크롤은 그대로 되지만 오른쪽 스크롤바만 안 보이게 함
+    scrollbarWidth: 'none',
+    selectors: {
+      '&::-webkit-scrollbar': {
+        display: 'none',
+      },
     },
   },
-});
+]);
 
 // 사이드바(카메라 목록)·뷰어·우측 패널을 나란히 두는 틀만 여기서 잡음 — 배경은 각 영역이
 // 알아서 관리함(뷰어·필름스트립은 영상이라 어둡게, 사이드바·우측 패널은 앱의 다른 화면과
@@ -25,15 +28,16 @@ export const container = style({
 // 가독성이 떨어진다는 피드백을 받고 되돌림
 export const consolePanel = style({
   display: 'grid',
-  gridTemplateColumns: '25rem 1fr 30rem',
+  gridTemplateColumns: '25rem minmax(0, 1fr) 30rem',
   alignItems: 'start',
   gap: vars.space.s5,
-  '@media': {
-    '(max-width: 1280px)': {
-      gridTemplateColumns: '25rem 1fr',
+  minWidth: 0,
+  '@container': {
+    [`(max-width: ${contentBreakpoints.threePanel})`]: {
+      gridTemplateColumns: '25rem minmax(0, 1fr)',
     },
-    '(max-width: 960px)': {
-      gridTemplateColumns: '1fr',
+    [`(max-width: ${contentBreakpoints.compact})`]: {
+      gridTemplateColumns: 'minmax(0, 1fr)',
     },
   },
 });
@@ -67,11 +71,6 @@ export const viewerImg = style({
   objectFit: 'contain',
   width: '100%',
   height: '100%',
-});
-
-export const viewerEmpty = style({
-  color: 'rgba(255,255,255,0.5)',
-  ...vars.typography.body14,
 });
 
 export const liveBadge = style({
@@ -296,6 +295,9 @@ export const rightCol = style({
   flexDirection: 'column',
   gap: vars.space.s4,
   minWidth: 0,
+  '@container': {
+    [`(max-width: ${contentBreakpoints.threePanel})`]: { gridColumn: '1 / -1' },
+  },
 });
 
 export const panel = style({
@@ -327,11 +329,6 @@ export const infoKey = style({
 export const infoValue = style({
   color: vars.color.textHigh,
   ...vars.typography.body14Bold,
-});
-
-export const emptyEvents = style({
-  color: vars.color.textLow,
-  ...vars.typography.body14,
 });
 
 // 이벤트가 쌓일수록 패널이 끝없이 길어져 페이지 전체가 늘어지던 문제 — 높이를 고정하고

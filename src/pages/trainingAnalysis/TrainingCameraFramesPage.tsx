@@ -14,6 +14,7 @@ import ChevronRightIcon from '@assets/icons/ic-chevron-right.svg?react';
 
 import EmptyState from '@components/empty';
 import LoadingState from '@components/loadingState';
+import useToast from '@components/toast/useToast';
 
 import {
   getScenarioDetailPath,
@@ -66,6 +67,7 @@ const TrainingCameraFramesPage = () => {
   const { state: navigationState } = useLocation();
   const navigate = useNavigate();
   const routedScenarioId = getScenarioIdFromNavigationState(navigationState);
+  const { show } = useToast();
   // 인덱스가 아니라 frameId로 선택 프레임을 추적함 — 과거 페이지를 더 불러오면 배열 앞쪽에
   // 프레임이 추가되는데(아래 frames 설명 참고), 고정된 숫자 인덱스로 추적하면 그 순간
   // 사용자가 보던 프레임이 페이지 크기만큼 과거로 밀려버림(실측으로 확인한 버그).
@@ -159,6 +161,56 @@ const TrainingCameraFramesPage = () => {
     [cameras],
   );
   useTrainingMonitoringSocket(sessionId, cameraRefs);
+
+  // 세션/카메라/프레임 조회 실패 — 화면엔 아래 EmptyState로도 보이지만, 폴링 중 조용히 실패만
+  // 하고 넘어가는 경우를 놓치지 않도록 최초 실패 시 1회 토스트로도 알림(floorPlans·buildings와
+  // 톤 통일). 세션·카메라는 한 화면 아래서 같은 EmptyState로 묶어 보여주는 것과 맞춰 토스트도 묶음
+  const sessionErrorToastShownRef = useRef(false);
+  useEffect(() => {
+    if (!isSessionError && !isCamerasError) {
+      sessionErrorToastShownRef.current = false;
+      return;
+    }
+    if (sessionErrorToastShownRef.current) return;
+    sessionErrorToastShownRef.current = true;
+    const relevantError = isSessionError ? sessionError : camerasError;
+    show({
+      title: '훈련 정보를 불러오지 못했습니다.',
+      description: extractApiError(relevantError).message || undefined,
+      variant: 'error',
+    });
+  }, [isSessionError, isCamerasError, sessionError, camerasError, show]);
+
+  const framesErrorToastShownRef = useRef(false);
+  useEffect(() => {
+    if (!isFramesError) {
+      framesErrorToastShownRef.current = false;
+      return;
+    }
+    if (framesErrorToastShownRef.current) return;
+    framesErrorToastShownRef.current = true;
+    show({
+      title: '프레임을 불러오지 못했습니다.',
+      description: extractApiError(framesError).message || undefined,
+      variant: 'error',
+    });
+  }, [isFramesError, framesError, show]);
+
+  // 보던 훈련이 RUNNING을 벗어나면 이 화면은 자동으로 떠나지는데(아래 Navigate), 왜 화면이
+  // 바뀌었는지 안내가 전혀 없었음 — FAILED(시간 초과)는 도착하는 시나리오 상세 화면이 이미
+  // 자체 토스트·모달을 띄우므로 중복 안내하지 않고, 정상 종료·강제 종료만 여기서 안내
+  const wasViewableRef = useRef(false);
+  useEffect(() => {
+    if (!session) return;
+    if (isViewable(session.status)) {
+      wasViewableRef.current = true;
+      return;
+    }
+    if (wasViewableRef.current && session.status !== TRAINING_SESSION_STATUS.FAILED) {
+      show({ title: '훈련이 종료되어 모니터링을 종료합니다.', variant: 'default' });
+    }
+    wasViewableRef.current = false;
+  }, [session, show]);
 
   // 배열이 시간순으로 뒤집혀서, "다음 페이지(더 과거 프레임)"가 필요해지는 시점도 배열
   // 앞쪽(오래된 쪽, 인덱스 0 근처)임 — 그쪽 근처까지 보면 미리 불러와서 ‹로 넘길 때 끊기지 않게 함
@@ -302,10 +354,8 @@ const TrainingCameraFramesPage = () => {
 
           <div className={styles.viewerCol}>
             {frames.length === 0 || !currentFrame ? (
-              // EmptyState는 밝은 화면 기준 색이라(짙은 글자) 어두운 뷰어 위에서는 거의 안 보임 —
-              // 뷰어와 같은 어두운 박스 안에 옅은 색 글자로 직접 띄움
               <div className={styles.viewer}>
-                <span className={styles.viewerEmpty}>저장된 프레임이 없습니다</span>
+                <EmptyState size="compact" tone="dark" title="저장된 프레임이 없습니다" />
               </div>
             ) : (
               <>
@@ -317,7 +367,7 @@ const TrainingCameraFramesPage = () => {
                       alt={`${camera.code} ${formatCapturedTime(currentFrame.capturedAt)} 프레임`}
                     />
                   ) : (
-                    <span className={styles.viewerEmpty}>이미지 준비 중…</span>
+                    <EmptyState size="compact" tone="dark" title="이미지 준비 중…" />
                   )}
 
                   <span className={styles.viewerTime}>
@@ -457,7 +507,7 @@ const TrainingCameraFramesPage = () => {
             <div className={styles.panel}>
               <span className={styles.panelTitle}>이벤트 타임라인</span>
               {events.length === 0 ? (
-                <span className={styles.emptyEvents}>기록된 이벤트가 없습니다</span>
+                <EmptyState size="compact" title="기록된 이벤트가 없습니다" />
               ) : (
                 <ul className={styles.timelineList}>
                   {events.map((event) => (

@@ -16,11 +16,6 @@ export const gradeCard = style([
   },
 ]);
 
-export const eyebrow = style({
-  color: vars.color.textInverseMid,
-  ...vars.typography.captionMedium,
-});
-
 export const grade = style({
   marginTop: vars.space.s1,
   color: vars.color.textInverse,

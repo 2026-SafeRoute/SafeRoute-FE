@@ -12,6 +12,8 @@ import type {
   RecentTrainingReportResponse,
   TrainingSessionSummaryResponse,
 } from '@apis/__generated__/data-contracts';
+import { SCENARIO_STATUS } from '@apis/scenarios/scenarioTypes';
+import type { Scenario } from '@apis/scenarios/scenarioTypes';
 import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
 
 import { formatDate, formatDuration } from '@utils/format';
@@ -58,7 +60,7 @@ export const toHomeMetrics = (stats: DashboardStatsResponse): HomeMetric[] => [
   },
   {
     id: 'survival-rate',
-    title: '평균 생존율',
+    title: '평균 대피 성공률',
     value: (stats.avgSurvivalRate ?? 0).toFixed(1),
     valueSuffix: '%',
     iconTone: 'green',
@@ -111,3 +113,18 @@ export const toScheduledTraining = (
     status: isRunning ? TRAINING_SESSION_STATUS.RUNNING : TRAINING_SESSION_STATUS.SCHEDULED,
   };
 };
+
+// READY 시나리오는 발화 위치·START 후보 저장 전에 세션 없이 존재할 수 있다.
+// 홈에서는 준비 대상으로 보여주되 세션 시작 액션과 구분한다.
+export const toReadyScenarioTraining = (
+  scenario: Scenario,
+  buildingName?: string,
+): ScheduledTraining => ({
+  id: scenario.id,
+  name: scenario.name ?? '-',
+  building: buildingName ?? '-',
+  date: formatDate(scenario.scheduledAt),
+  time: formatTime(scenario.scheduledAt),
+  participants: formatParticipants(scenario.expectedParticipants),
+  status: SCENARIO_STATUS.READY,
+});

@@ -53,14 +53,6 @@ export const getBuildings = async () => {
   return buildings.map(toBuilding);
 };
 
-export const getBuilding = async (buildingId: string) => {
-  const building = await request<BuildingResponse>({
-    method: HTTP_METHOD.GET,
-    url: API_ENDPOINTS.BUILDINGS.DETAIL(buildingId),
-  });
-  return toBuilding(building);
-};
-
 export const postBuilding = async (body: CreateBuildingRequest) => {
   const building = await request<BuildingResponse, CreateBuildingRequest>({
     method: HTTP_METHOD.POST,

@@ -27,26 +27,26 @@ const FloorSyncWarningModal = ({
   const floorsWithData = sortedFloorsToDelete.filter(hasFloorPlan);
   const dataFloorLabels = floorsWithData.map((f) => formatFloor(f.floorNum)).join(', ');
 
-  const description =
-    floorsWithData.length > 0
-      ? `'${buildingName}'의 ${floorLabels}가 삭제됩니다. 이 중 ${dataFloorLabels}에는 이미 등록된 도면이 있습니다.`
-      : `'${buildingName}'의 ${floorLabels}가 삭제됩니다.`;
+  let description = `'${buildingName}'의 ${floorLabels}이 삭제됩니다.`;
+  if (floorsWithData.length > 0 && floorsWithData.length < sortedFloorsToDelete.length) {
+    description += `\n도면이 등록된 층: ${dataFloorLabels}`;
+  }
 
   return (
     <Modal
       variant="confirm"
       open={open}
       onClose={onClose}
-      title="층수를 줄이면 도면 데이터가 삭제됩니다"
+      title="층수 변경으로 인한 도면 데이터 삭제"
       description={description}
-      warning="층수를 줄이면 해당 층의 도면 이미지·노드·CCTV·유도등 등 모든 데이터가 영구적으로 삭제됩니다. 계속하시겠습니까?"
+      warning={'삭제 대상의 도면과 장비 설정이 모두 영구적으로 삭제됩니다.\n계속하시겠습니까?'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
             취소
           </Button>
           <Button variant="danger" onClick={onConfirm} isLoading={isSubmitting}>
-            삭제하고 계속
+            삭제
           </Button>
         </>
       }

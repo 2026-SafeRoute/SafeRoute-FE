@@ -17,6 +17,9 @@ export const SCENARIO_STATUS_FILTER_OPTIONS = [
 
 export const FIRE_SPREAD_OPTIONS = ['느림', '중간', '빠름'] as const;
 
+export const SCENARIO_NAME_MIN_LENGTH = 2;
+export const SCENARIO_NAME_MAX_LENGTH = 20;
+
 export const FIRE_SPREAD_LABEL = {
   SLOW: '느림',
   MEDIUM: '중간',
@@ -37,8 +40,18 @@ export const PREVIEW_STATUS: PreviewStatus = {
   dot: true,
 };
 
+export const PREVIEW_WARNING_STATUS: PreviewStatus = {
+  label: '확인 필요',
+  color: 'yellow',
+  dot: true,
+};
+
 export const LIVE_STATUS: PreviewStatus = {
   label: '진행중',
   color: 'green',
   dot: true,
 };
+
+export const ROUTE_RECALCULATION_EXPIRED_TITLE = '경로 변경 제안이 만료되었어요.';
+export const ROUTE_RECALCULATION_EXPIRED_MESSAGE =
+  '상황이 바뀌어 이 제안은 더 이상 유효하지 않아요.';

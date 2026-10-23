@@ -3,11 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router';
 
+import { useGetTrainingStatusQuery } from '@pages/home/api/useTrainingStatusQuery';
+import type { RunningTrainingStatusResponse } from '@pages/home/types/home';
 import { monitoringQueryKeys } from '@pages/trainingAnalysis/api/monitoringQueryKeys';
 import { useSessionContextQuery } from '@pages/trainingAnalysis/api/useSessionContextQuery';
 import type { TrainingSessionContext } from '@pages/trainingAnalysis/types/trainingAnalysis';
 
 import type { TrainingSessionSummaryResponse } from '@apis/__generated__/data-contracts';
+import { fireZoneQueryOptions } from '@apis/scenarios/fireZoneQueries';
 import { scenarioQueryKeys } from '@apis/scenarios/scenarioQueryKeys';
 import {
   SESSION_DISCOVERY_POLL_INTERVAL_MS,
@@ -17,6 +20,7 @@ import { trainingSessionQueryKeys } from '@apis/trainingSessions/trainingSession
 import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTrainingSessionsQuery';
 import { TRAINING_EVENT_TYPE } from '@apis/trainingSessions/websocket/trainingSessionEvents';
 import type {
+  EvacuationRouteBlockedEventData,
   TrainingSessionEvent,
   TrainingStatusEventData,
 } from '@apis/trainingSessions/websocket/trainingSessionEvents';
@@ -25,6 +29,10 @@ import { useTrainingSessionSocket } from '@apis/trainingSessions/websocket/useTr
 import useToast from '@components/toast/useToast';
 
 import { getScenarioDetailPath, ROUTES } from '@constants/path';
+
+import { formatDuration } from '@utils/format';
+
+import { useRouteRecalculationNotifications } from '../hooks/useRouteRecalculationNotifications';
 
 interface SessionNotificationProps {
   session: TrainingSessionSummaryResponse;
@@ -41,17 +49,43 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: context } = useSessionContextQuery(session.sessionId);
+  const { data: trainingStatus } = useGetTrainingStatusQuery(session.sessionId);
   const timedOut = context?.status === TRAINING_SESSION_STATUS.FAILED;
   const interrupted =
     context?.status === TRAINING_SESSION_STATUS.STOPPED ||
     context?.status === TRAINING_SESSION_STATUS.CANCELLED;
   const completed = context?.status === TRAINING_SESSION_STATUS.COMPLETED;
-  const lastRouteEvent = useRef<string>();
+  const lastRouteBlockedEvent = useRef<string>();
   const isScenarioPage = Boolean(
     session.scenarioId && pathname === getScenarioDetailPath(session.scenarioId),
   );
   const isTrainingAnalysisPage =
     pathname === ROUTES.TRAINING_ANALYSIS || pathname.startsWith(`${ROUTES.TRAINING_ANALYSIS}/`);
+  const handleRouteRecalculationEvent = useRouteRecalculationNotifications({
+    session,
+    isScenarioPage,
+  });
+
+  const showRouteBlockedWarning = useCallback(
+    ({
+      blockedAt,
+      blockedAfterSec,
+    }: Pick<EvacuationRouteBlockedEventData, 'blockedAt' | 'blockedAfterSec'>) => {
+      const blockedAtEpoch = Date.parse(blockedAt);
+      const eventKey = Number.isNaN(blockedAtEpoch)
+        ? `elapsed:${blockedAfterSec}`
+        : `blocked-at:${blockedAtEpoch}`;
+      if (lastRouteBlockedEvent.current === eventKey) return;
+      lastRouteBlockedEvent.current = eventKey;
+      show({
+        title: '대피 가능한 경로가 모두 차단되었습니다.',
+        description: `화재 확산으로 시작 지점에서 출구까지 이동할 수 없습니다.\n(훈련 시작 ${formatDuration(blockedAfterSec)} 후)`,
+        variant: 'warning',
+        duration: 0,
+      });
+    },
+    [show],
+  );
 
   useTrainingSessionSocket({
     sessionId: session.sessionId,
@@ -82,22 +116,36 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
           queryKey: monitoringQueryKeys.context(event.sessionId),
         });
       }
-      if (event.eventType !== TRAINING_EVENT_TYPE.ROUTE_RECALCULATION_REQUESTED) return;
-      if (lastRouteEvent.current === event.occurredAt) return;
-      lastRouteEvent.current = event.occurredAt;
-      if (isScenarioPage) return;
-      show({
-        title: '대피 경로 재탐색 요청이 도착했습니다.',
-        description: `${session.scenarioName ?? '진행 중인 훈련'}의 시나리오 화면에서 경로 변경 제안을 확인해 주세요.`,
-        variant: 'warning',
-        duration: 0,
-        actionLabel: '시나리오로 이동',
-        onAction: () => {
-          if (session.scenarioId) void navigate(getScenarioDetailPath(session.scenarioId));
-        },
-      });
+      if (event.eventType === TRAINING_EVENT_TYPE.EVACUATION_ROUTE_BLOCKED) {
+        const blockedEvent = event as TrainingSessionEvent<EvacuationRouteBlockedEventData>;
+        showRouteBlockedWarning(blockedEvent.data);
+        return;
+      }
+      // 시나리오 화면은 자체 소켓에서 갱신하므로, 다른 화면에 있을 때만 화재구역을 미리 받아 둔다.
+      if (
+        event.eventType === TRAINING_EVENT_TYPE.FIRE_SPREAD_UPDATED &&
+        session.scenarioId &&
+        !isScenarioPage
+      ) {
+        void queryClient.prefetchQuery(fireZoneQueryOptions(session.scenarioId));
+      }
+      handleRouteRecalculationEvent(event);
     },
   });
+
+  useEffect(() => {
+    const runningStatus = trainingStatus as RunningTrainingStatusResponse | undefined;
+    if (
+      !runningStatus?.routeBlockedAt ||
+      runningStatus.routeBlockedAfterSec === null ||
+      runningStatus.routeBlockedAfterSec === undefined
+    )
+      return;
+    showRouteBlockedWarning({
+      blockedAt: runningStatus.routeBlockedAt,
+      blockedAfterSec: runningStatus.routeBlockedAfterSec,
+    });
+  }, [showRouteBlockedWarning, trainingStatus]);
 
   useEffect(() => {
     if (!context?.status || isActiveSessionStatus(context.status)) return;
@@ -149,7 +197,7 @@ const SessionNotification = ({ session, onEnded }: SessionNotificationProps) => 
             ? '오류로 인해 훈련이 종료되었습니다.'
             : '훈련이 완료되었습니다.',
         description: timedOut
-          ? `${session.scenarioName ?? '훈련'} 훈련이 종료되었습니다. 생존 인원을 입력해 분석 보고서를 생성해 주세요.`
+          ? `${session.scenarioName ?? '훈련'} 훈련이 종료되었습니다. 대피 완료 인원을 입력해 분석 보고서를 생성해 주세요.`
           : `${session.scenarioName ?? '훈련'}의 시나리오 화면에서 결과를 확인해 주세요.`,
         variant: timedOut ? 'warning' : interrupted ? 'error' : 'success',
         duration: 10000,

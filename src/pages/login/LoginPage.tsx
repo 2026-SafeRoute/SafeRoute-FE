@@ -68,9 +68,9 @@ const LoginPage = () => {
           </h1>
 
           <p className={styles.description}>
-            AI 비전과 IoT 센서로 모든 훈련을 자동 평가하고,
+            AI 비전과 IoT 유도등으로 대피 훈련을 지원하고,
             <br />
-            개선 권고사항을 즉시 받아보세요.
+            훈련 결과에 대한 자동 평가와 개선 권고사항을 확인하세요.
           </p>
 
           <ul className={styles.featureList} aria-label="주요 기능">

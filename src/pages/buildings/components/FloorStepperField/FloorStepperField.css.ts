@@ -8,6 +8,7 @@ export const container = style({
   flex: 1,
   flexDirection: 'column',
   gap: vars.space.s2,
+  minWidth: 0,
 });
 
 export const label = style({
@@ -43,7 +44,7 @@ export const stepButton = style({
   border: 'none',
   backgroundColor: vars.color.gray50,
   cursor: 'pointer',
-  width: '3.6rem',
+  width: 'clamp(2.8rem, 8vw, 3.6rem)',
   height: '4.4rem',
   color: vars.color.textMid,
   fontSize: '1.8rem',

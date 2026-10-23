@@ -1,12 +1,12 @@
 import TrainingPreviewCard from '@pages/scenarioSettings/components/cards/trainingPreviewCard/TrainingPreviewCard';
-import { PREVIEW_STATUS } from '@pages/scenarioSettings/constants/scenarioSettings';
 import {
   draftButton,
   sideColumn,
+  startActionPanel,
   startRestrictionNotice,
   trainingDurationNotice,
 } from '@pages/scenarioSettings/ScenarioSettingsPage.css';
-import type { PreviewMetric } from '@pages/scenarioSettings/types/scenarioSettings';
+import type { PreviewMetric, PreviewStatus } from '@pages/scenarioSettings/types/scenarioSettings';
 
 import PlayIcon from '@assets/icons/ic-play.svg?react';
 
@@ -22,6 +22,11 @@ interface ScenarioStartState {
   showPreview: boolean;
   canEdit: boolean;
   metrics: PreviewMetric[];
+  previewStatus: PreviewStatus;
+  diagnosisMetrics: PreviewMetric[];
+  previewDescription?: string;
+  warningMessage?: string;
+  floorPlanPath?: string;
 }
 
 interface ScenarioActionHandlers {
@@ -81,7 +86,7 @@ const ScenarioActionPanel = ({
   }
 
   return (
-    <aside className={sideColumn}>
+    <aside className={startActionPanel}>
       <Button
         type="button"
         size="lg"
@@ -106,7 +111,21 @@ const ScenarioActionPanel = ({
       )}
 
       {startState.showPreview && (
-        <TrainingPreviewCard status={PREVIEW_STATUS} metrics={startState.metrics} />
+        <TrainingPreviewCard
+          status={startState.previewStatus}
+          metrics={startState.metrics}
+          diagnosisMetrics={startState.diagnosisMetrics}
+          description={startState.previewDescription}
+          warning={
+            startState.warningMessage
+              ? {
+                  message: startState.warningMessage,
+                  linkLabel: '도면 관리로 이동',
+                  linkTo: startState.floorPlanPath,
+                }
+              : undefined
+          }
+        />
       )}
 
       {startState.canEdit && (

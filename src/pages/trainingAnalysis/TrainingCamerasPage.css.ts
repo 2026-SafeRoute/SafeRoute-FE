@@ -1,23 +1,26 @@
 import { style } from '@vanilla-extract/css';
 
 import { vars } from '@styles/global.css';
+import { pageContent } from '@styles/responsive.css';
 
-export const container = style({
-  display: 'flex',
-  flex: 1,
-  flexDirection: 'column',
-  gap: vars.space.s5,
-  padding: vars.space.s8,
-  paddingTop: vars.space.s4,
-  overflow: 'auto',
-  // 스크롤은 그대로 되지만 오른쪽 스크롤바만 안 보이게 함
-  scrollbarWidth: 'none',
-  selectors: {
-    '&::-webkit-scrollbar': {
-      display: 'none',
+export const container = style([
+  pageContent,
+  {
+    display: 'flex',
+    flex: 1,
+    flexDirection: 'column',
+    gap: vars.space.s5,
+    paddingBlock: `${vars.space.s4} ${vars.layout.pageGutter}`,
+    overflow: 'auto',
+    // 스크롤은 그대로 되지만 오른쪽 스크롤바만 안 보이게 함
+    scrollbarWidth: 'none',
+    selectors: {
+      '&::-webkit-scrollbar': {
+        display: 'none',
+      },
     },
   },
-});
+]);
 
 export const gridSection = style({
   display: 'flex',
@@ -49,6 +52,6 @@ export const floorCount = style({
 
 export const grid = style({
   display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 28rem), 1fr))',
   gap: vars.space.s4,
 });

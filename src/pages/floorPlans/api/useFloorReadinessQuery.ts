@@ -18,7 +18,8 @@ export const useFloorReadinessQuery = (floorId: string, enabled = true): FloorRe
   const nodes = data?.nodes ?? [];
   const edges = data?.edges ?? [];
 
-  const startNodes = nodes.filter((n) => n.type === 'START');
+  // START 타입(레거시) + isStartCandidate(BE PR #225, DOOR 등을 시작 후보로 지정) 둘 다 인정
+  const startNodes = nodes.filter((n) => n.type === 'START' || n.isStartCandidate);
   const exitIds = new Set(nodes.filter((n) => n.type === 'EXIT').map((n) => n.id));
 
   const hasRouteToExit = (() => {

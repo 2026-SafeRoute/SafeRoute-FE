@@ -58,7 +58,7 @@ const TrainingEndModal = ({
     }
 
     if (!normalizedSurvivorCount) {
-      nextErrors.survivorCount = '생존 인원을 입력해 주세요.';
+      nextErrors.survivorCount = '대피 완료 인원을 입력해 주세요.';
     } else {
       parsedSurvivorCount = Number(normalizedSurvivorCount);
     }
@@ -67,13 +67,13 @@ const TrainingEndModal = ({
       parsedSurvivorCount !== undefined &&
       (!Number.isInteger(parsedSurvivorCount) || parsedSurvivorCount < 0)
     ) {
-      nextErrors.survivorCount = '생존 인원을 0명 이상 입력해 주세요.';
+      nextErrors.survivorCount = '대피 완료 인원을 0명 이상 입력해 주세요.';
     } else if (
       parsedSurvivorCount !== undefined &&
       Number.isInteger(participantCount) &&
       parsedSurvivorCount > participantCount
     ) {
-      nextErrors.survivorCount = '생존 인원은 총 참가 인원보다 많을 수 없습니다.';
+      nextErrors.survivorCount = '대피 완료 인원은 총 참가 인원보다 많을 수 없습니다.';
     }
 
     setErrors(nextErrors);
@@ -119,7 +119,7 @@ const TrainingEndModal = ({
       size="lg"
       className={styles.modal}
       title="훈련 결과 입력"
-      description="총 참가 인원을 확인하고 생존 인원을 입력해 주세요."
+      description="총 참가 인원을 확인하고 대피 완료 인원을 입력해 주세요."
       footer={
         <>
           <Button
@@ -151,7 +151,7 @@ const TrainingEndModal = ({
             readOnly
           />
           <TextField
-            label="생존 인원"
+            label="대피 완료 인원"
             type="number"
             inputMode="numeric"
             min={0}
@@ -165,8 +165,8 @@ const TrainingEndModal = ({
           />
         </div>
         <p className={styles.helperText}>
-          총 참가 인원은 시나리오의 예상 참가 인원이며, 생존 인원에는 안전하게 대피를 완료한 인원을
-          입력해 주세요.
+          총 참가 인원은 시나리오의 예상 참가 인원이며, 대피 완료 인원에는 안전하게 대피를 완료한
+          인원을 입력해 주세요.
         </p>
       </form>
     </Modal>

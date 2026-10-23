@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { trainingSessionQueryKeys } from '@apis/trainingSessions/trainingSessionQueryKeys';
 
@@ -23,6 +23,12 @@ export const routeRecalculationQueryKeys = {
     [...routeRecalculationQueryKeys.details(), recalculationId] as const,
 };
 
+export const routeRecalculationDetailQueryOptions = (recalculationId: string) =>
+  queryOptions({
+    queryKey: routeRecalculationQueryKeys.detail(recalculationId),
+    queryFn: ({ signal }) => getRouteRecalculationDetail(recalculationId, signal),
+  });
+
 export const useRouteRecalculationsQuery = (
   params?: GetRouteRecalculationsParams,
   enabled = true,
@@ -39,11 +45,12 @@ export const useRouteRecalculationsQuery = (
 
 export const useRouteRecalculationDetailQuery = (recalculationId?: string, enabled = true) =>
   useQuery({
-    queryKey: routeRecalculationQueryKeys.detail(recalculationId),
-    queryFn: ({ signal }) => {
-      if (!recalculationId) throw new Error('재탐색 ID가 필요합니다.');
-      return getRouteRecalculationDetail(recalculationId, signal);
-    },
+    ...(recalculationId
+      ? routeRecalculationDetailQueryOptions(recalculationId)
+      : {
+          queryKey: routeRecalculationQueryKeys.detail(),
+          queryFn: () => Promise.reject(new Error('재탐색 ID가 필요합니다.')),
+        }),
     enabled: enabled && Boolean(recalculationId),
   });
 

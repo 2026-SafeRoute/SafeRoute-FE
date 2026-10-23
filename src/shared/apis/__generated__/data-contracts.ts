@@ -121,6 +121,13 @@ export interface ApiResponseFloorResponse {
   result?: FloorResponse;
 }
 
+export interface ApiResponseFloorRouteDiagnosisResponse {
+  code?: string;
+  isSuccess?: boolean;
+  message?: string;
+  result?: FloorRouteDiagnosisResponse;
+}
+
 export interface ApiResponseIoTLightResponse {
   code?: string;
   isSuccess?: boolean;
@@ -231,6 +238,13 @@ export interface ApiResponseS3UploadResponse {
   isSuccess?: boolean;
   message?: string;
   result?: S3UploadResponse;
+}
+
+export interface ApiResponseScenarioRouteDiagnosisResponse {
+  code?: string;
+  isSuccess?: boolean;
+  message?: string;
+  result?: ScenarioRouteDiagnosisResponse;
 }
 
 export interface ApiResponseSignupResponse {
@@ -659,7 +673,7 @@ export interface CurrentCctvStateListResponse {
 /** CCTV 한 대의 현재 혼잡 상태 */
 export interface CurrentCctvStateResponse {
   /**
-   * 최근 5초 관측 구간의 평균 인원. 상태가 없으면 null
+   * 최근 관측 구간의 평균 인원. 상태가 없으면 null
    * @format double
    * @example 8.6
    */
@@ -719,7 +733,7 @@ export interface CurrentCctvStateResponse {
    */
   location?: string;
   /**
-   * 최근 5초 관측 구간의 순간 최대 인원. 상태가 없으면 null
+   * 최근 관측 구간의 순간 최대 인원. 상태가 없으면 null
    * @format int32
    * @example 12
    */
@@ -783,6 +797,10 @@ export interface DeviceTokenIssueResponse {
   deviceToken?: string;
 }
 
+export type DiagnoseFloorData = ApiResponseFloorRouteDiagnosisResponse;
+
+export type DiagnoseScenarioData = ApiResponseScenarioRouteDiagnosisResponse;
+
 export type DisableCctvData = ApiResponseCctvResponse;
 
 export type DisableLightData = ApiResponseIoTLightResponse;
@@ -800,6 +818,18 @@ export interface EvacuationRouteResponse {
   path?: MapNodeResponse[];
   /** @format double */
   totalWeight?: number;
+}
+
+export interface Event {
+  /**
+   * 훈련 시작 후 예상 시점(초)
+   * @format int64
+   */
+  afterSeconds?: number;
+  /** RECALCULATED일 때 바뀐 경로의 노드 ID 목록. BLOCKED면 빈 목록 */
+  routeNodeIds?: string[];
+  /** RECALCULATED: 재탐색으로 경로가 바뀜 / BLOCKED: 우회 경로가 없어 경로가 막힘 */
+  type?: "RECALCULATED" | "BLOCKED";
 }
 
 export interface EventDetectionResponse {
@@ -920,6 +950,22 @@ export interface FloorResponse {
   segmentationStatus?: "PENDING" | "PROCESSING" | "DONE" | "FAILED";
   /** @format date-time */
   updatedAt?: string;
+}
+
+export interface FloorRouteDiagnosisResponse {
+  /**
+   * 진단한 층 ID
+   * @format uuid
+   */
+  floorId?: string;
+  /** 끊긴 노드가 없고 모든 시작 후보가 탈출구 2곳 이상에 닿으면 true */
+  ready?: boolean;
+  /** 시작 후보별 도달 가능한 탈출구 수 */
+  startCandidates?: StartCandidate[];
+  /** 타입이 STAIR·EXIT인데 탈출구로 지정하지 않은 노드 ID 목록. 엣지로 이어져 있으면 경로 중간에는 지날 수 있지만 대피 목적지(탈출구)로는 선택되지 않는다. 일부러 쓰지 않는 계단도 있을 수 있어 참고 정보이며 ready에는 영향이 없다 */
+  undesignatedStairNodeIds?: string[];
+  /** 어떤 탈출구에도 도달할 수 없는 노드 ID 목록 (CCTV·유도등 위치 노드는 제외) */
+  unreachableNodeIds?: string[];
 }
 
 export type ForceEndTrainingSessionData = ApiResponseTrainingSessionResponse;
@@ -1465,7 +1511,7 @@ export interface MonitoringFrameResponse {
   /**
    * 이 프레임이 속한 분석 구간의 시작 시각(Unix epoch milliseconds)
    * @format int64
-   * @example 1787722090000
+   * @example 1787722094000
    */
   windowStart?: number;
 }
@@ -1652,6 +1698,12 @@ export interface ReportResponse {
   reportId?: string;
   /** @format double */
   riskIndex?: number;
+  /**
+   * 화재 확산으로 시작 지점에서 출구로 가는 대피 경로가 모두 막히기까지 걸린 시간(초, 훈련 시작 기준). 훈련 중 한 번도 막히지 않았으면 null. 점수에는 반영하지 않는 참고 지표다 - 시스템은 이 층 그래프 밖(아래층 계단 등)의 대피 수단과 실제 사람 위치를 모르므로 실패 판정 근거로 쓰지 않는다. 이 필드가 추가되기 전에 생성된 리포트는 null이다.
+   * @format int32
+   * @example 95
+   */
+  routeBlockedAfterSec?: number;
   summaryText?: string;
   survivalRate?: number;
   /** @format int32 */
@@ -1698,7 +1750,7 @@ export interface RouteRecalculationDetailResponse {
   trainingSessionId?: string;
   /** @format uuid */
   triggerEdgeId?: string;
-  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED";
+  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED" | "FIRE_SPREAD";
 }
 
 export interface RouteRecalculationResponse {
@@ -1741,7 +1793,7 @@ export interface RouteRecalculationSummaryResponse {
   trainingSessionId?: string;
   /** @format uuid */
   triggerEdgeId?: string;
-  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED";
+  triggerType?: "STARTED" | "LEVEL_UP" | "ENDED" | "FIRE_SPREAD";
 }
 
 export interface RouteSegment {
@@ -1805,6 +1857,56 @@ export interface ScenarioResponse {
   updatedAt?: string;
 }
 
+export interface ScenarioRouteDiagnosisResponse {
+  /**
+   * 모든 경로가 막히는 예상 시점(초). 제한 시간 안에 막히지 않으면 null
+   * @format int64
+   */
+  blockedAfterSeconds?: number;
+  /** 시간순 예상 이벤트 */
+  events?: Event[];
+  /** 시나리오 화재 확산 속도 */
+  fireSpreadSpeed?: "SLOW" | "MEDIUM" | "FAST";
+  /**
+   * 시나리오 시작 지점이 있는 층 ID
+   * @format uuid
+   */
+  floorId?: string;
+  /** 화재가 안내 경로에 처음 닿았을 때 재탐색이 일어나면 true. 닿자마자 막히면 false (시나리오 시작 확인창 기준) */
+  hasAlternativeRoute?: boolean;
+  /** 훈련 시작 시 처음 안내되는 경로의 노드 ID 목록 (출발 -> 도착) */
+  initialRouteNodeIds?: string[];
+  /**
+   * 예상 재탐색 횟수
+   * @format int32
+   */
+  recalculationCount?: number;
+  /**
+   * 시나리오 ID
+   * @format uuid
+   */
+  scenarioId?: string;
+  /**
+   * 계산한 최대 시간(초). 훈련 제한 시간과 같다
+   * @format int64
+   */
+  simulatedUntilSeconds?: number;
+  /**
+   * 시나리오 시작 지점 노드 ID
+   * @format uuid
+   */
+  startNodeId?: string;
+  /**
+   * 화재가 한 칸 번지는 간격(초)
+   * @format int64
+   */
+  tickSeconds?: number;
+  /** 타입이 STAIR·EXIT인데 탈출구로 지정하지 않은 노드 ID 목록. 엣지로 이어져 있으면 경로 중간에는 지날 수 있지만 대피 목적지(탈출구)로는 선택되지 않는다 */
+  undesignatedStairNodeIds?: string[];
+  /** 탈출구로 지정됐지만 훈련 시작 시점(최초 발화 지점만 막힌 상태)에 시작 지점에서 갈 수 없는 탈출구 노드 ID 목록. 모두 갈 수 있으면 빈 목록 */
+  unreachableExitNodeIds?: string[];
+}
+
 export type SetupData = ScenarioEvacuationSetupResponse;
 
 export type SignupData = ApiResponseSignupResponse;
@@ -1842,6 +1944,19 @@ export interface SignupResponse {
   role?: "MANAGER" | "NORMAL";
   schoolName?: string;
   username?: string;
+}
+
+export interface StartCandidate {
+  /**
+   * 시작 후보 노드 ID
+   * @format uuid
+   */
+  nodeId?: string;
+  /**
+   * 이 후보에서 갈 수 있는 탈출구 수
+   * @format int32
+   */
+  reachableExitCount?: number;
 }
 
 export interface StartNode {

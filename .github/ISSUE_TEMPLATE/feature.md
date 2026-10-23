@@ -2,8 +2,6 @@
 name: 기능 개발 Issue 템플릿
 about: 기능 개발 Issue 생성 템플릿입니다.
 title: '[feat] '
-labels: feat
-assignees: ''
 ---
 
 ## 📋 작업 내용
@@ -24,4 +22,3 @@ assignees: ''
 ## 🔗 참고
 
 <!-- 피그마, API 명세 링크 등 -->
-<!-- ‼️우측 패널에서 Assignees, Labels를 설정해주세요‼️ -->

@@ -1,6 +1,9 @@
 import { useId, useState } from 'react';
 
+import MapIcon from '@assets/icons/ic-map.svg?react';
+
 import { Button } from '@components/Button';
+import EmptyState from '@components/empty';
 import Modal from '@components/modal';
 
 import * as styles from './GridAreaSettingModal.css';
@@ -9,7 +12,7 @@ interface GridAreaSettingModalProps {
   open: boolean;
   onClose: () => void;
   mapImageUrl: string | null;
-  onConfirm: (params: { realWidthCm: number; realHeightCm: number; cellSizeCm: number }) => void;
+  onConfirm: (params: { realWidthM: number; realHeightM: number; cellSizeCm: number }) => void;
   isSubmitting?: boolean;
 }
 
@@ -20,14 +23,14 @@ const GridAreaSettingModal = ({
   onConfirm,
   isSubmitting = false,
 }: GridAreaSettingModalProps) => {
-  const [realWidthCm, setRealWidthCm] = useState('');
-  const [realHeightCm, setRealHeightCm] = useState('');
+  const [realWidthM, setRealWidthM] = useState('');
+  const [realHeightM, setRealHeightM] = useState('');
   const [cellSizeCm, setCellSizeCm] = useState(100);
   const widthInputId = useId();
   const heightInputId = useId();
   const cellSizeInputId = useId();
-  const realWidthCmValue = Number(realWidthCm);
-  const realHeightCmValue = Number(realHeightCm);
+  const realWidthMValue = Number(realWidthM);
+  const realHeightMValue = Number(realHeightM);
 
   const makeDimensionChangeHandler =
     (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,17 +40,17 @@ const GridAreaSettingModal = ({
     };
 
   const handleClose = () => {
-    setRealWidthCm('');
-    setRealHeightCm('');
+    setRealWidthM('');
+    setRealHeightM('');
     setCellSizeCm(100);
     onClose();
   };
 
   const isDimensionsValid =
-    Number.isFinite(realWidthCmValue) &&
-    realWidthCmValue > 0 &&
-    Number.isFinite(realHeightCmValue) &&
-    realHeightCmValue > 0 &&
+    Number.isFinite(realWidthMValue) &&
+    realWidthMValue > 0 &&
+    Number.isFinite(realHeightMValue) &&
+    realHeightMValue > 0 &&
     cellSizeCm > 0 &&
     cellSizeCm < 500;
 
@@ -55,14 +58,22 @@ const GridAreaSettingModal = ({
     if (!isDimensionsValid || isSubmitting) return;
     // 요청이 실패해도 모달이 닫히지 않을 수 있으므로(부모가 open을 유지) 값은 리셋하지 않고 재시도할 수 있게 둠
     onConfirm({
-      realWidthCm: realWidthCmValue,
-      realHeightCm: realHeightCmValue,
+      realWidthM: realWidthMValue,
+      realHeightM: realHeightMValue,
       cellSizeCm,
     });
   };
 
-  // 실제 축척과 무관한 미리보기 전용 근사치 — 정확한 격자는 업로드 후 실제 캔버스에서 확인 가능
-  const cellSize = Math.max(6, Math.min(120, cellSizeCm / 5));
+  // 가로/세로(m)가 입력되면 그 실측 비율대로 %로 그려서 도면관리 상세의 실제 그리드 배율과
+  // 맞게 보여줌 — background-size %는 요소 자신의 박스 기준으로 계산되므로 미리보기 박스의
+  // 실제 px 너비를 몰라도 됨. 아직 입력 전(0 또는 빈 값)에는 셀 크기만으로 대략치를 보여줌
+  const hasRealSize = realWidthMValue > 0 && realHeightMValue > 0;
+  // background-size에 값을 하나만 주면 height는 'auto'(그라디언트는 intrinsic 크기가 없어 100%로
+  // 처리됨)가 되어 세로선이 통째로 한 번만 그려짐(가로선 없이 줄무늬로 보임) — 가로/세로 둘 다 명시
+  const approxCellPx = Math.max(6, Math.min(120, cellSizeCm / 5));
+  const gridBackgroundSize = hasRealSize
+    ? `${cellSizeCm / realWidthMValue}% ${cellSizeCm / realHeightMValue}%`
+    : `${approxCellPx}px ${approxCellPx}px`;
 
   return (
     <Modal
@@ -102,11 +113,17 @@ const GridAreaSettingModal = ({
             style={{
               backgroundImage:
                 'linear-gradient(to right, rgba(37,99,235,0.25) 1px, transparent 1px), linear-gradient(to bottom, rgba(37,99,235,0.25) 1px, transparent 1px)',
-              backgroundSize: `${cellSize}px ${cellSize}px`,
+              backgroundSize: gridBackgroundSize,
             }}
           />
         ) : (
-          <span className={styles.previewEmpty}>도면 이미지를 불러올 수 없습니다</span>
+          <div className={styles.previewEmpty}>
+            <EmptyState
+              size="compact"
+              icon={<MapIcon />}
+              title="도면 이미지를 불러올 수 없습니다"
+            />
+          </div>
         )}
       </div>
 
@@ -114,7 +131,7 @@ const GridAreaSettingModal = ({
         <div className={styles.dimensionFields}>
           <div className={styles.areaField}>
             <label className={styles.fieldLabel} htmlFor={widthInputId}>
-              가로 (cm)
+              가로 (m)
             </label>
             <div className={styles.areaInputShell}>
               <input
@@ -122,17 +139,17 @@ const GridAreaSettingModal = ({
                 className={styles.areaInput}
                 type="text"
                 inputMode="decimal"
-                placeholder="2000"
-                value={realWidthCm}
-                onChange={makeDimensionChangeHandler(setRealWidthCm)}
+                placeholder="20"
+                value={realWidthM}
+                onChange={makeDimensionChangeHandler(setRealWidthM)}
               />
-              <span className={styles.areaUnit}>cm</span>
+              <span className={styles.areaUnit}>m</span>
             </div>
           </div>
 
           <div className={styles.areaField}>
             <label className={styles.fieldLabel} htmlFor={heightInputId}>
-              세로 (cm)
+              세로 (m)
             </label>
             <div className={styles.areaInputShell}>
               <input
@@ -140,11 +157,11 @@ const GridAreaSettingModal = ({
                 className={styles.areaInput}
                 type="text"
                 inputMode="decimal"
-                placeholder="1500"
-                value={realHeightCm}
-                onChange={makeDimensionChangeHandler(setRealHeightCm)}
+                placeholder="15"
+                value={realHeightM}
+                onChange={makeDimensionChangeHandler(setRealHeightM)}
               />
-              <span className={styles.areaUnit}>cm</span>
+              <span className={styles.areaUnit}>m</span>
             </div>
           </div>
         </div>

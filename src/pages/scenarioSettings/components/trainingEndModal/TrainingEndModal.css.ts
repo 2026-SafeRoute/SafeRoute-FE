@@ -35,7 +35,6 @@ export const helperText = style({
 export const confirmBody = style({
   alignItems: 'center',
   gap: '0.6rem',
-  padding: `${vars.space.s8} ${vars.space.s8} ${vars.space.s6}`,
   textAlign: 'center',
 });
 
@@ -55,7 +54,7 @@ export const successIcon = style({
 
 export const actions = style({
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 20rem), 1fr))',
   gap: vars.space.s3,
   width: '100%',
 });

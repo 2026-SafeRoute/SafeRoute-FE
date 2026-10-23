@@ -128,6 +128,32 @@ export const setupNotice = style({
   ...vars.typography.body14,
 });
 
+export const setupMapWrapper = style({
+  position: 'relative',
+});
+
+export const setupMapBlocker = style({
+  position: 'absolute',
+  zIndex: 1,
+  inset: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: vars.radius.lg,
+  backgroundColor: `color-mix(in srgb, ${vars.color.white} 72%, transparent)`,
+  cursor: 'not-allowed',
+});
+
+export const setupMapBlockerMessage = style({
+  border: `1px solid ${vars.color.gray200}`,
+  borderRadius: vars.radius.md,
+  backgroundColor: vars.color.white,
+  padding: `${vars.space.s2} ${vars.space.s3}`,
+  textAlign: 'center',
+  color: vars.color.textMid,
+  ...vars.typography.body14Medium,
+});
+
 export const setupButton = style({
   display: 'block',
   marginTop: vars.space.s3,

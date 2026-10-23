@@ -41,51 +41,55 @@ const RecentTrainingSection = ({
     </div>
 
     {records.length > 0 ? (
-      <table className={styles.recordsTable}>
-        <thead>
-          <tr>
-            {HOME_RECENT_TRAINING_TABLE_HEADERS.map((header) => (
-              <th key={header} className={styles.tableHeadCell}>
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((record) => {
-            const reportId = record.reportId;
+      <div className={styles.tableScroll}>
+        <table className={styles.recordsTable}>
+          <thead>
+            <tr>
+              {HOME_RECENT_TRAINING_TABLE_HEADERS.map((header) => (
+                <th key={header} className={styles.tableHeadCell}>
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((record) => {
+              const reportId = record.reportId;
 
-            return (
-              <tr key={record.id} className={styles.tableRow({ interactive: Boolean(reportId) })}>
-                <td className={styles.tableCell({ tone: 'emphasis' })}>
-                  {reportId ? (
-                    <button
-                      type="button"
-                      className={styles.reportButton}
-                      aria-label={`${record.name} 분석 보고서 보기`}
-                      onClick={() => onOpenReport(reportId)}
-                    >
-                      {record.name}
-                    </button>
-                  ) : (
-                    record.name
-                  )}
-                </td>
-                <td className={styles.tableCell({ tone: 'date' })}>{record.date}</td>
-                <td className={styles.tableCell()}>{record.participants}</td>
-                <td className={styles.tableCell({ tone: 'emphasis' })}>{record.evacuationTime}</td>
-                <td className={styles.tableCell()}>{record.survivalRate}</td>
-                <td className={styles.tableCell()}>
-                  <StatusBadge
-                    label={record.grade}
-                    color={HOME_GRADE_BADGE_COLOR[record.grade] ?? 'neutral'}
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              return (
+                <tr key={record.id} className={styles.tableRow({ interactive: Boolean(reportId) })}>
+                  <td className={styles.tableCell({ tone: 'emphasis' })}>
+                    {reportId ? (
+                      <button
+                        type="button"
+                        className={styles.reportButton}
+                        aria-label={`${record.name} 분석 보고서 보기`}
+                        onClick={() => onOpenReport(reportId)}
+                      >
+                        {record.name}
+                      </button>
+                    ) : (
+                      record.name
+                    )}
+                  </td>
+                  <td className={styles.tableCell({ tone: 'date' })}>{record.date}</td>
+                  <td className={styles.tableCell()}>{record.participants}</td>
+                  <td className={styles.tableCell({ tone: 'emphasis' })}>
+                    {record.evacuationTime}
+                  </td>
+                  <td className={styles.tableCell()}>{record.survivalRate}</td>
+                  <td className={styles.tableCell()}>
+                    <StatusBadge
+                      label={record.grade}
+                      color={HOME_GRADE_BADGE_COLOR[record.grade] ?? 'neutral'}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     ) : (
       <EmptyState
         className={styles.emptyState}

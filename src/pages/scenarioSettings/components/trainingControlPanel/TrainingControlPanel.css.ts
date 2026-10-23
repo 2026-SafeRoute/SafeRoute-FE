@@ -1,4 +1,5 @@
 import { globalStyle, style } from '@vanilla-extract/css';
+import { recipe } from '@vanilla-extract/recipes';
 
 import { sectionCardBase } from '@pages/scenarioSettings/ScenarioSettingsPage.css';
 
@@ -66,19 +67,26 @@ export const durationNotice = style({
   ...vars.typography.caption,
 });
 
-export const proposalCard = style([
-  sectionCardBase,
-  {
-    borderColor: vars.color.warningStrong,
-    backgroundColor: vars.color.warningSurface,
-    padding: vars.space.s5,
+export const proposalCard = recipe({
+  base: [sectionCardBase, { padding: vars.space.s5 }],
+  variants: {
+    expired: {
+      true: {
+        borderColor: vars.color.gray100,
+        backgroundColor: vars.color.white,
+      },
+      false: {
+        borderColor: vars.color.warningStrong,
+        backgroundColor: vars.color.warningSurface,
+      },
+    },
   },
-]);
+  defaultVariants: { expired: false },
+});
 
 export const proposalHeader = style({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
   gap: vars.space.s3,
 });
 
@@ -97,13 +105,33 @@ export const warningDot = style({
   height: '0.8rem',
 });
 
-export const aiBadge = style({
-  border: `1px solid ${vars.color.warningStrong}`,
+export const expiredBadge = style({
   borderRadius: vars.radius.pill,
-  backgroundColor: vars.color.white,
-  padding: '0.2rem 0.9rem',
-  color: vars.color.warningText,
-  ...vars.typography.caption,
+  backgroundColor: vars.color.gray100,
+  padding: `${vars.space.s1} ${vars.space.s2}`,
+  color: vars.color.gray500,
+  ...vars.typography.captionBold,
+});
+
+export const expiredReason = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: vars.space.s1,
+  marginTop: vars.space.s2,
+  borderRadius: vars.radius.md,
+  backgroundColor: vars.color.gray25,
+  padding: vars.space.s3,
+});
+
+export const expiredReasonLabel = style({
+  color: vars.color.gray500,
+  ...vars.typography.captionBold,
+});
+
+export const expiredReasonMessage = style({
+  margin: 0,
+  color: vars.color.textHigh,
+  ...vars.typography.body14Medium,
 });
 
 export const proposalMessage = style({

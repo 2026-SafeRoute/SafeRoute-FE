@@ -24,7 +24,7 @@ const FloorReuploadConfirmModal = ({
     onClose={onClose}
     title="도면 재업로드"
     description={`'${buildingName}'의 ${formatFloor(floorNum)} 도면을 재업로드하시겠습니까?`}
-    warning="재업로드하면 현재 도면에 지정된 노드·구역 등 편집 내용이 모두 삭제되며 되돌릴 수 없습니다."
+    warning={'재업로드 시 현재 도면에 지정된 노드·구역 등 모든 편집 내용이 영구적으로 삭제됩니다.'}
     footer={
       <>
         <Button variant="ghost" onClick={onClose}>

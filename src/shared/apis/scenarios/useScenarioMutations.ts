@@ -46,6 +46,9 @@ export const useUpdateScenarioMutation = () => {
     onSuccess: (scenario) => {
       queryClient.setQueryData(scenarioQueryKeys.detail(scenario.id), scenario);
       void queryClient.invalidateQueries({ queryKey: scenarioQueryKeys.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: scenarioQueryKeys.routeDiagnosis(scenario.id),
+      });
     },
   });
 };

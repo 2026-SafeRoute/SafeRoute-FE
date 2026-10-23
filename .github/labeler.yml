@@ -1,0 +1,31 @@
+version: 1
+labels:
+  - label: bug
+    title: '(?i)^\[?(bug/fix|bug)\]?([(:\s]|$)'
+
+  - label: chore
+    title: '(?i)^\[?(chore|setting|config)\]?([(:\s]|$)'
+
+  - label: docs
+    title: '(?i)^\[?docs?\]?([(:\s]|$)'
+
+  - label: feat
+    title: '(?i)^\[?(feat|feature)\]?([(:\s]|$)'
+
+  - label: fix
+    title: '(?i)^\[?(fix|hotfix|bugfix)\]?([(:\s]|$)'
+
+  - label: project
+    title: '(?i)^\[?project\]?([(:\s]|$)'
+
+  - label: refactor
+    title: '(?i)^\[?refactor\]?([(:\s]|$)'
+
+  - label: style
+    title: '(?i)^\[?(style|format|prettier)\]?([(:\s]|$)'
+
+  - label: 서현
+    authors: ['urapp13ofmyeye']
+
+  - label: 소이
+    authors: ['soyyyyy']

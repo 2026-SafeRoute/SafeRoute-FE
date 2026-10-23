@@ -9,7 +9,8 @@ export const form = style({
 });
 
 export const floorRow = style({
-  display: 'flex',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: vars.space.s4,
 });
 

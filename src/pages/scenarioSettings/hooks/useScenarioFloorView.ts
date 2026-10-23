@@ -167,8 +167,13 @@ export const useScenarioFloorView = ({
   const floorGridQuery = useFloorGridCellsQuery(floorId, enabled);
   const floorCctvsQuery = useFloorCctvsQuery(floorId, enabled);
   const floorLightsQuery = useFloorLightsQuery(floorId, enabled);
+  // START 타입 노드(레거시)뿐 아니라, DOOR 등을 시작 후보로 지정한 isStartCandidate도
+  // 같이 인정해야 함(BE PR #225) — type만 보면 다 걸러져서 "START 후보 없음"으로 보였음
   const startNodes = useMemo(
-    () => floorGraphQuery.data?.nodes.filter((node) => node.type === 'START') ?? [],
+    () =>
+      floorGraphQuery.data?.nodes.filter(
+        (node) => node.type === 'START' || node.isStartCandidate,
+      ) ?? [],
     [floorGraphQuery.data],
   );
   const hasSelectedFireCell = Boolean(

@@ -24,8 +24,8 @@ const EquipmentDeleteConfirmModal = ({
       if (!isSubmitting) onClose();
     }}
     title="장비 삭제"
-    description={`'${label}'을(를) 삭제하시겠습니까?`}
-    warning="이 작업은 되돌릴 수 없습니다. 도면에서 해당 장비 노드가 제거됩니다."
+    description={`'${label}' 장비를 삭제하시겠습니까?`}
+    warning={'도면에서 해당 장비 노드가 제거되며, \n이 작업은 되돌릴 수 없습니다.'}
     footer={
       <>
         <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>

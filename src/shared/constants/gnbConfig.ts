@@ -8,12 +8,12 @@ type GNBConfig = Pick<GNBProps, 'breadcrumbs' | 'title' | 'description'>;
 
 const DEFAULT_GNB_CONFIG = {
   title: 'SAFE ROUTE',
-  description: '안전 관리 시스템',
+  description: '화재 대피 훈련 관리 시스템',
 } as const satisfies GNBConfig;
 
 const SCENARIO_SETTINGS_GNB_CONFIG = {
   title: '시나리오 설정',
-  description: '화재 발생 위치를 확인하고 시나리오를 시작합니다',
+  description: '발화 위치와 대피 경로를 설정하고 훈련을 진행합니다',
 } as const satisfies GNBConfig;
 
 const GNB_CONFIGS = [

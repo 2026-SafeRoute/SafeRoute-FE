@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router';
 
@@ -8,8 +8,11 @@ import {
   TRAINING_SESSION_STATUS,
 } from '@apis/trainingSessions/trainingSessionConstants';
 
+import CameraIcon from '@assets/icons/ic-camera.svg?react';
+
 import EmptyState from '@components/empty';
 import LoadingState from '@components/loadingState';
+import useToast from '@components/toast/useToast';
 
 import { getScenarioDetailPath, getTrainingCameraFramesPath, ROUTES } from '@constants/path';
 
@@ -47,6 +50,7 @@ const TrainingCamerasPage = () => {
   const { state: navigationState } = useLocation();
   const navigate = useNavigate();
   const routedScenarioId = getScenarioIdFromNavigationState(navigationState);
+  const { show } = useToast();
 
   const {
     session,
@@ -88,6 +92,54 @@ const TrainingCamerasPage = () => {
   useTrainingMonitoringSocket(sessionId, cameraRefs);
 
   const floorGroups = useMemo(() => groupCamerasByFloor(cameras), [cameras]);
+
+  // 세션/카메라 목록 조회 실패 — 화면엔 아래 EmptyState로도 보이지만, 폴링 중 조용히 실패만 하고
+  // 넘어가는 경우를 놓치지 않도록 최초 실패 시 1회 토스트로도 알림(floorPlans·buildings와 톤 통일)
+  const sessionErrorToastShownRef = useRef(false);
+  useEffect(() => {
+    if (!isSessionError) {
+      sessionErrorToastShownRef.current = false;
+      return;
+    }
+    if (sessionErrorToastShownRef.current) return;
+    sessionErrorToastShownRef.current = true;
+    show({
+      title: '훈련 정보를 불러오지 못했습니다.',
+      description: extractApiError(sessionError).message || undefined,
+      variant: 'error',
+    });
+  }, [isSessionError, sessionError, show]);
+
+  const camerasErrorToastShownRef = useRef(false);
+  useEffect(() => {
+    if (!isCamerasError) {
+      camerasErrorToastShownRef.current = false;
+      return;
+    }
+    if (camerasErrorToastShownRef.current) return;
+    camerasErrorToastShownRef.current = true;
+    show({
+      title: '카메라 목록을 불러오지 못했습니다.',
+      description: extractApiError(camerasError).message || undefined,
+      variant: 'error',
+    });
+  }, [isCamerasError, camerasError, show]);
+
+  // 보던 훈련이 RUNNING을 벗어나면 이 화면은 자동으로 떠나지는데(아래 Navigate), 왜 화면이
+  // 바뀌었는지 안내가 전혀 없었음 — FAILED(시간 초과)는 도착하는 시나리오 상세 화면이 이미
+  // 자체 토스트·모달을 띄우므로 중복 안내하지 않고, 정상 종료·강제 종료만 여기서 안내
+  const wasViewableRef = useRef(false);
+  useEffect(() => {
+    if (!session) return;
+    if (isViewable(session.status)) {
+      wasViewableRef.current = true;
+      return;
+    }
+    if (wasViewableRef.current && session.status !== TRAINING_SESSION_STATUS.FAILED) {
+      show({ title: '훈련이 종료되어 모니터링을 종료합니다.', variant: 'default' });
+    }
+    wasViewableRef.current = false;
+  }, [session, show]);
 
   if (session?.status === TRAINING_SESSION_STATUS.FAILED && scenarioId) {
     return (
@@ -175,7 +227,10 @@ const TrainingCamerasPage = () => {
         )}
 
         {!isCamerasLoading && !isCamerasError && cameras.length === 0 && (
-          <EmptyState title="등록된 카메라가 없습니다" />
+          <EmptyState
+            icon={<CameraIcon width={32} height={32} />}
+            title="등록된 카메라가 없습니다"
+          />
         )}
 
         {!isCamerasLoading && !isCamerasError && cameras.length > 0 && (

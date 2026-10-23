@@ -83,6 +83,13 @@ export const vars = createGlobalTheme(':root', {
     md: '0 4px 12px rgba(0,0,0,0.1)',
     sm: '0 1px 2px rgba(0,0,0,0.05)',
   },
+  layout: {
+    sidebarWidth: '24rem',
+    sidebarCollapsedWidth: '7.2rem',
+    pageGutter: '3.2rem',
+    panelGap: '1.6rem',
+    contentMaxWidth: '160rem',
+  },
   space: {
     s1: '0.4rem',
     s2: '0.8rem',
@@ -218,6 +225,14 @@ export const vars = createGlobalTheme(':root', {
       letterSpacing: '-0.02em',
       lineHeight: '1.4',
     },
+  },
+});
+
+// 화면 전체에 공통으로 적용되는 밀도만 뷰포트에서 결정
+globalStyle(':root', {
+  '@media': {
+    '(max-width: 1439px)': { vars: { [vars.layout.pageGutter]: '2.4rem' } },
+    '(max-width: 1279px)': { vars: { [vars.layout.pageGutter]: '1.6rem' } },
   },
 });
 

@@ -1,7 +1,6 @@
 import { Link, useNavigate } from 'react-router';
 
 import ArrowRightIcon from '@assets/icons/ic-arrow-right.svg?react';
-import PlayIcon from '@assets/icons/ic-play.svg?react';
 import logoImg from '@assets/icons/logo.webp';
 
 import { Button } from '@components/Button';
@@ -39,27 +38,23 @@ const LandingPage = () => {
 
       <main className={styles.main}>
         <section className={styles.hero}>
-          <span className={styles.badge}>AI · IoT · Digital Twin</span>
+          <span className={styles.badge}>AI · IoT · 화재 대피 훈련</span>
           <h1 className={styles.title}>
             AI 기반
             <br />
             실시간 화재 대피 훈련 관리
           </h1>
           <p className={styles.description}>
-            CCTV AI 비전 분석과 IoT 센서를 활용한 실시간 군중 밀집도 모니터링으로
+            CCTV AI 비전 분석으로 실시간 군중 밀집도를 확인하고,
             <br />
-            효과적인 대피 훈련과 능동적 경로 안내를 실현합니다.
+            IoT 유도등과 연동한 대피 경로 안내로 효과적인 훈련을 지원합니다.
           </p>
 
           <div className={styles.ctaGroup}>
             <Link className={styles.primaryCta} to={ROUTES.HOME}>
-              시스템 접속
+              시작하기
               <ArrowRightIcon />
             </Link>
-            <button className={styles.secondaryCta} type="button">
-              <PlayIcon />
-              데모 영상
-            </button>
           </div>
         </section>
 
@@ -80,13 +75,6 @@ const LandingPage = () => {
 
       <footer className={styles.footer}>
         <p>© 2026 Safe Route Inc. All rights reserved.</p>
-        <div className={styles.footerLinks}>
-          <a href="#terms">이용약관</a>
-          <span aria-hidden="true">·</span>
-          <a href="#privacy">개인정보처리방침</a>
-          <span aria-hidden="true">·</span>
-          <a href="#support">고객지원</a>
-        </div>
       </footer>
     </div>
   );

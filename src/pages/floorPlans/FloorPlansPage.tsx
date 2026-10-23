@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { isAxiosError } from 'axios';
 import { useNavigate } from 'react-router';
+
+import { extractApiError } from '@apis/errors/apiError';
+import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
+import { useGetTrainingSessionsQuery } from '@apis/trainingSessions/useGetTrainingSessionsQuery';
 
 import BuildingIcon from '@assets/icons/ic-building.svg?react';
 import EyeIcon from '@assets/icons/ic-eye.svg?react';
@@ -105,6 +109,7 @@ interface UploadTarget {
   buildingName: string;
   floorId: string;
   floorNum: number;
+  isReupload: boolean;
 }
 interface FloorActionTarget {
   buildingId: string;
@@ -118,17 +123,28 @@ interface PendingUpload {
   floorNum: number;
   file: File;
   previewUrl: string;
+  isReupload: boolean;
 }
 
 interface FloorCardProps {
   floor: FloorSummary;
   buildingId: string;
   buildingName: string;
+  editingLocked: boolean;
+  editingLockHintId: string;
   onUpload: (target: UploadTarget) => void;
   onReupload: (target: FloorActionTarget) => void;
 }
 
-const FloorCard = ({ floor, buildingId, buildingName, onUpload, onReupload }: FloorCardProps) => {
+const FloorCard = ({
+  floor,
+  buildingId,
+  buildingName,
+  editingLocked,
+  editingLockHintId,
+  onUpload,
+  onReupload,
+}: FloorCardProps) => {
   const navigate = useNavigate();
   const isNone = !hasFloorPlan(floor);
   const { label, color } = isNone ? NONE_STATUS_BADGE : STATUS_CONFIG[floor.segmentationStatus];
@@ -168,8 +184,16 @@ const FloorCard = ({ floor, buildingId, buildingName, onUpload, onReupload }: Fl
         <button
           type="button"
           className={styles.uploadButton}
+          disabled={editingLocked}
+          aria-describedby={editingLocked ? editingLockHintId : undefined}
           onClick={() =>
-            onUpload({ buildingId, buildingName, floorId: floor.id, floorNum: floor.floorNum })
+            onUpload({
+              buildingId,
+              buildingName,
+              floorId: floor.id,
+              floorNum: floor.floorNum,
+              isReupload: false,
+            })
           }
         >
           도면 업로드
@@ -189,6 +213,8 @@ const FloorCard = ({ floor, buildingId, buildingName, onUpload, onReupload }: Fl
           <button
             type="button"
             className={styles.reuploadButton}
+            disabled={editingLocked}
+            aria-describedby={editingLocked ? editingLockHintId : undefined}
             onClick={() => onReupload({ buildingId, buildingName, floor })}
           >
             <UploadIcon width={14} height={14} />
@@ -203,6 +229,15 @@ const FloorCard = ({ floor, buildingId, buildingName, onUpload, onReupload }: Fl
 const FloorPlansPage = () => {
   const navigate = useNavigate();
   const { show } = useToast();
+  const { data: runningSessions = [], isPending: isRunningSessionsPending } =
+    useGetTrainingSessionsQuery(TRAINING_SESSION_STATUS.RUNNING);
+  const lockedBuildingIds = useMemo(
+    () =>
+      new Set(
+        runningSessions.flatMap((session) => (session.buildingId ? [session.buildingId] : [])),
+      ),
+    [runningSessions],
+  );
   const [buildings, setBuildings] = useState<FloorBuilding[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadError, setHasLoadError] = useState(false);
@@ -234,12 +269,35 @@ const FloorPlansPage = () => {
     void loadFloorBuildings();
   }, [loadFloorBuildings]);
 
+  // 목록을 보고 있는 사이 훈련이 시작되면 열려 있던 업로드 흐름도 닫는다. 실제 요청 시점의
+  // 경합은 서버 FLOOR004가 한 번 더 막는다.
+  useEffect(() => {
+    if (
+      uploadTarget &&
+      (isRunningSessionsPending || lockedBuildingIds.has(uploadTarget.buildingId))
+    )
+      setUploadTarget(null);
+    if (
+      reuploadTarget &&
+      (isRunningSessionsPending || lockedBuildingIds.has(reuploadTarget.buildingId))
+    ) {
+      setReuploadTarget(null);
+    }
+    setPendingUpload((current) => {
+      if (!current || (!isRunningSessionsPending && !lockedBuildingIds.has(current.buildingId)))
+        return current;
+      URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
+  }, [isRunningSessionsPending, lockedBuildingIds, reuploadTarget, uploadTarget]);
+
   const handleOpenFloorUpload = (target: FloorActionTarget) => {
     setUploadTarget({
       buildingId: target.buildingId,
       buildingName: target.buildingName,
       floorId: target.floor.id,
       floorNum: target.floor.floorNum,
+      isReupload: true,
     });
   };
 
@@ -250,7 +308,8 @@ const FloorPlansPage = () => {
 
   // 파일 선택 단계 — 실제 업로드는 다음 단계(가로/세로 입력)에서 함께 이뤄짐
   const handleFileSelected = (file: File) => {
-    if (!uploadTarget) return;
+    if (!uploadTarget || isRunningSessionsPending || lockedBuildingIds.has(uploadTarget.buildingId))
+      return;
     setPendingUpload({ ...uploadTarget, file, previewUrl: URL.createObjectURL(file) });
     setUploadTarget(null);
   };
@@ -261,14 +320,20 @@ const FloorPlansPage = () => {
   };
 
   const handleUploadDimensionsConfirm = (params: {
-    realWidthCm: number;
-    realHeightCm: number;
+    realWidthM: number;
+    realHeightM: number;
     cellSizeCm: number;
   }) => {
-    if (!pendingUpload || isUploading) return;
-    const { buildingId, buildingName, floorNum, file, previewUrl } = pendingUpload;
+    if (
+      !pendingUpload ||
+      isUploading ||
+      isRunningSessionsPending ||
+      lockedBuildingIds.has(pendingUpload.buildingId)
+    )
+      return;
+    const { buildingId, buildingName, floorNum, file, previewUrl, isReupload } = pendingUpload;
     setIsUploading(true);
-    uploadFloor(buildingId, floorNum, file, params.realWidthCm, params.realHeightCm)
+    uploadFloor(buildingId, floorNum, file, params.realWidthM, params.realHeightM)
       .then(async (newFloor) => {
         // 그리드 배율을 지금 설정해도, 뒤이어 실행되는 AI 분석이 그리드 셀을 재생성하면서
         // cellSizeMeter가 사라지는 경우가 있음. 그래서 값을 남겨두고(새로고침에도 살아남음)
@@ -298,9 +363,18 @@ const FloorPlansPage = () => {
         );
         show({
           title: '도면이 업로드되었습니다.',
-          description: `${buildingName} · ${formatFloor(floorNum)} AI 분석이 진행 중입니다. 완료되면 상세 화면에 자동으로 반영됩니다.`,
+          description: `${buildingName} · ${formatFloor(floorNum)} AI 분석이 진행 중입니다.\n완료되면 상세 화면에 자동으로 반영됩니다.`,
           variant: 'success',
         });
+        if (isReupload) {
+          show({
+            title: '도면 관련 설정을 다시 확인해 주세요.',
+            description:
+              'AI 분석 완료 후 유도등 안내 설정·담당 CCTV와 시나리오 시작 지점을 다시 설정해야 할 수 있습니다.',
+            variant: 'warning',
+            duration: 10000,
+          });
+        }
         URL.revokeObjectURL(previewUrl);
         setPendingUpload(null);
         setIsUploading(false);
@@ -310,18 +384,25 @@ const FloorPlansPage = () => {
         // 실제 진행 상태는 상세 화면이 폴링하며, 필요하면 그곳에서 재시도할 수 있다.
         analyzeFloor(newFloor.id).catch((error: unknown) => {
           const timedOut = isAxiosError(error) && error.code === 'ECONNABORTED';
+          const serverMessage = extractApiError(error).message;
           show({
             title: timedOut
               ? 'AI 분석이 진행 중입니다. 상세 화면에서 완료 여부를 확인해주세요.'
-              : 'AI 분석 상태는 상세 화면에서 확인할 수 있어요. 완료되지 않았다면 그곳에서 다시 시도해주세요.',
+              : serverMessage ||
+                'AI 분석 상태는 상세 화면에서 확인할 수 있어요. 완료되지 않았다면 그곳에서 다시 시도해주세요.',
             variant: 'warning',
           });
         });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         // 미리보기와 입력값을 유지해 모달을 닫지 않고 바로 재시도할 수 있게 함
         setIsUploading(false);
-        show({ title: '업로드에 실패했습니다. 다시 시도해주세요.', variant: 'error' });
+        const serverMessage = extractApiError(error).message;
+        show({
+          title: '업로드에 실패했습니다.',
+          description: serverMessage || '다시 시도해주세요.',
+          variant: 'error',
+        });
       });
   };
 
@@ -365,6 +446,11 @@ const FloorPlansPage = () => {
                 <div className={styles.buildingDot} aria-hidden="true" />
                 <span className={styles.buildingName}>{building.name}</span>
                 <span className={styles.buildingCount}>{building.floors.length}개 층</span>
+                {(isRunningSessionsPending || lockedBuildingIds.has(building.id)) && (
+                  <span id={`floor-edit-lock-${building.id}`} className={styles.editingLockBadge}>
+                    {isRunningSessionsPending ? '훈련 상태 확인 중' : '훈련 진행 중 · 편집 잠금'}
+                  </span>
+                )}
               </div>
 
               <div className={styles.floorGrid}>
@@ -376,6 +462,8 @@ const FloorPlansPage = () => {
                       floor={floor}
                       buildingId={building.id}
                       buildingName={building.name}
+                      editingLocked={isRunningSessionsPending || lockedBuildingIds.has(building.id)}
+                      editingLockHintId={`floor-edit-lock-${building.id}`}
                       onUpload={setUploadTarget}
                       onReupload={setReuploadTarget}
                     />

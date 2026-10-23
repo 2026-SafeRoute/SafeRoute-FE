@@ -28,7 +28,7 @@ export const trigger = recipe({
     color: vars.color.textHigh,
     ...vars.typography.body14Medium,
     selectors: {
-      '&:hover': { borderColor: vars.color.gray300 },
+      '&:hover': { borderColor: vars.color.primary },
       '&[aria-expanded="true"]': { borderColor: vars.color.primary },
     },
   },
@@ -79,7 +79,7 @@ export const panel = style({
   boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)',
   backgroundColor: vars.color.white,
   padding: 0,
-  minWidth: '18rem',
+  minWidth: 'min(18rem, calc(100vw - 3.2rem))',
   overflowY: 'auto',
 });
 
@@ -93,10 +93,10 @@ export const option = style({
   color: vars.color.textHigh,
   ...vars.typography.body14,
   selectors: {
-    '&:hover': { backgroundColor: vars.color.gray50 },
-    '&[data-active="true"]': { backgroundColor: vars.color.gray50 },
+    '&:hover': { backgroundColor: vars.color.primaryLight2 },
+    '&[data-active="true"]': { backgroundColor: vars.color.primaryLight2 },
     '&[aria-selected="true"]': {
-      backgroundColor: vars.color.primaryLight2,
+      backgroundColor: vars.color.primaryLight,
       color: vars.color.primary,
       fontWeight: vars.fontWeight.medium,
     },

@@ -8,17 +8,17 @@ export const wideModal = style({
 
 export const footer = style({
   display: 'flex',
+  flexWrap: 'wrap',
   gap: vars.space.s3,
   width: '100%',
 });
 
 export const cancelButton = style({
-  flexShrink: 0,
-  width: '19.4rem',
+  flex: '1 1 16rem',
 });
 
 export const confirmButton = style({
-  flex: 1,
+  flex: '2 1 16rem',
 });
 
 export const preview = style({
@@ -38,8 +38,6 @@ export const previewEmpty = style({
   alignItems: 'center',
   justifyContent: 'center',
   height: '100%',
-  color: vars.color.textLow,
-  ...vars.typography.body14,
 });
 
 export const gridOverlay = style({

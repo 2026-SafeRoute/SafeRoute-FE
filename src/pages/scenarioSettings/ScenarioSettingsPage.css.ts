@@ -1,14 +1,18 @@
 import { style } from '@vanilla-extract/css';
 
 import { vars } from '@styles/global.css';
+import { contentBreakpoints, pageContent } from '@styles/responsive.css';
 
-export const container = style({
-  display: 'flex',
-  flex: 1,
-  flexDirection: 'column',
-  padding: vars.space.s6,
-  minHeight: '100%',
-});
+export const container = style([
+  pageContent,
+  {
+    display: 'flex',
+    flex: 1,
+    flexDirection: 'column',
+    paddingBlock: vars.layout.pageGutter,
+    minHeight: '100%',
+  },
+]);
 
 export const sectionCardBase = style({
   border: `1px solid ${vars.color.gray100}`,
@@ -49,6 +53,9 @@ export const fieldGrid = style({
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: vars.space.s4,
   marginTop: vars.space.s4,
+  '@container': {
+    [`(max-width: ${contentBreakpoints.compact})`]: { gridTemplateColumns: 'minmax(0, 1fr)' },
+  },
 });
 
 export const sideCardTitle = style({
@@ -61,6 +68,10 @@ export const contentGrid = style({
   gridTemplateColumns: 'minmax(0, 1fr) 38rem',
   alignItems: 'start',
   gap: vars.space.s4,
+  minWidth: 0,
+  '@container': {
+    [`(max-width: ${contentBreakpoints.twoPanel})`]: { gridTemplateColumns: 'minmax(0, 1fr)' },
+  },
 });
 
 export const sideColumn = style({
@@ -69,6 +80,17 @@ export const sideColumn = style({
   gap: vars.space.s4,
   minWidth: 0,
 });
+
+export const startActionPanel = style([
+  sideColumn,
+  {
+    '@container': {
+      [`(max-width: ${contentBreakpoints.twoPanel})`]: {
+        paddingBottom: vars.space.s6,
+      },
+    },
+  },
+]);
 
 export const draftButton = style({
   borderColor: vars.color.gray100,

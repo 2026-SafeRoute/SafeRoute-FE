@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import type { ScheduledTraining } from '@pages/home/types/home';
 
+import { SCENARIO_STATUS } from '@apis/scenarios/scenarioTypes';
 import { TRAINING_SESSION_STATUS } from '@apis/trainingSessions/trainingSessionConstants';
 
 import { Button } from '@components/Button';
@@ -26,6 +27,7 @@ const ScheduledTrainingSection = ({
   actionIcon,
 }: ScheduledTrainingSectionProps) => {
   const isInProgress = training?.status === TRAINING_SESSION_STATUS.RUNNING;
+  const needsPreparation = training?.status === SCENARIO_STATUS.READY;
   const startedAt = isInProgress && training?.startedAt ? Date.parse(training.startedAt) : null;
   const elapsedTime = useElapsedTrainingTime(
     startedAt !== null && !Number.isNaN(startedAt) ? startedAt : null,
@@ -38,17 +40,17 @@ const ScheduledTrainingSection = ({
 
   return (
     <section className={styles.scheduledCard}>
-      <div className={styles.sectionHeader}>
-        <div className={styles.sectionTitleRow}>
-          {sectionIcon ? <span className={styles.titleIcon}>{sectionIcon}</span> : null}
-          <h2 className={styles.sectionTitle}>{sectionTitle}</h2>
-        </div>
+      <div className={styles.sectionTitleRow}>
+        {sectionIcon ? <span className={styles.titleIcon}>{sectionIcon}</span> : null}
+        <h2 className={styles.sectionTitle}>{sectionTitle}</h2>
       </div>
 
       <div className={styles.scheduleInfoPanel}>
         {training ? (
           <>
-            <p className={styles.subtleLabel}>훈련 시나리오</p>
+            <p className={styles.subtleLabel}>
+              {needsPreparation ? '시나리오 준비완료' : '훈련 시나리오'}
+            </p>
             <p className={styles.schedulePlace}>{training.name}</p>
 
             <div className={styles.scheduleMetaGrid}>
@@ -74,18 +76,19 @@ const ScheduledTrainingSection = ({
         )}
       </div>
 
-      <Button
-        type="button"
-        size="lg"
-        fullWidth
-        className={styles.scheduleButton}
-        leftIcon={actionIcon}
-        onClick={onAction}
-        disabled={!training}
-        isLoading={isLoading}
-      >
-        {isInProgress ? '모니터링 보기' : training ? '훈련 시작' : '훈련 없음'}
-      </Button>
+      {training && (
+        <Button
+          type="button"
+          size="lg"
+          fullWidth
+          className={styles.scheduleButton}
+          leftIcon={needsPreparation ? undefined : actionIcon}
+          onClick={onAction}
+          isLoading={isLoading}
+        >
+          {needsPreparation ? '훈련 준비하기' : isInProgress ? '모니터링 보기' : '훈련 시작'}
+        </Button>
+      )}
     </section>
   );
 };

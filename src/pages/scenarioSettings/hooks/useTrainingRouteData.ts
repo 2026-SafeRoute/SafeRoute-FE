@@ -24,10 +24,7 @@ import {
   getLatestRecalculation,
 } from '@pages/scenarioSettings/utils/trainingRoutes';
 
-import type {
-  CurrentRouteResponse,
-  RouteRecalculationSummaryResponse,
-} from '@apis/__generated__/data-contracts';
+import type { CurrentRouteResponse } from '@apis/__generated__/data-contracts';
 import { floorQueryKeys } from '@apis/floors/floorQueries';
 import { fireZoneQueryKeys } from '@apis/scenarios/fireZoneQueries';
 import { trainingSessionQueryKeys } from '@apis/trainingSessions/trainingSessionQueryKeys';
@@ -80,21 +77,26 @@ export const useTrainingRouteData = ({
     () => recalculationsQuery.data ?? [],
     [recalculationsQuery.data],
   );
-  const recalculations = fetchedRecalculations.filter(
-    (item) =>
-      !item.recalculationId ||
-      !isResolvedRecalculation(eventStateRef.current, sessionId, item.recalculationId),
-  );
-  const pendingRecalculation = getLatestRecalculation(
-    recalculations.filter((item) => item.status === 'PENDING'),
-  );
+  // 처리 여부와 무관한 전체 목록 기준 최신 재탐색
+  const latestRecalculation = getLatestRecalculation(fetchedRecalculations);
+  // 최신 재탐색이 대기·만료 상태이고 화면에서 처리되지 않은 경우에만 카드 표시
+  const visibleRecalculation =
+    (latestRecalculation?.status === 'PENDING' || latestRecalculation?.status === 'CANCELLED') &&
+    !(
+      latestRecalculation.recalculationId &&
+      isResolvedRecalculation(eventStateRef.current, sessionId, latestRecalculation.recalculationId)
+    )
+      ? latestRecalculation
+      : undefined;
+  const pendingRecalculation =
+    visibleRecalculation?.status === 'PENDING' ? visibleRecalculation : undefined;
   const detailQuery = useRouteRecalculationDetailQuery(
     pendingRecalculation?.recalculationId,
     shouldFetch && liveUpdatesEnabled,
   );
   const approveMutation = useApproveRouteRecalculationMutation();
   const rejectMutation = useRejectRouteRecalculationMutation();
-  const routeProposal = formatRouteProposal(detailQuery.data);
+  const routeProposal = formatRouteProposal(detailQuery.data, visibleRecalculation);
   const currentRouteMessage = getCurrentRouteMessage(
     currentRouteQuery.data,
     currentRouteQuery.isPending,
@@ -107,10 +109,6 @@ export const useTrainingRouteData = ({
       eventStateRef.current.resolvedRecalculationIds.add(recalculationId);
       if (!sessionId) return;
 
-      queryClient.setQueryData<RouteRecalculationSummaryResponse[]>(
-        routeRecalculationQueryKeys.list({ trainingSessionId: sessionId }),
-        (items) => items?.filter((item) => item.recalculationId !== recalculationId),
-      );
       queryClient.removeQueries({
         queryKey: routeRecalculationQueryKeys.detail(recalculationId),
         exact: true,
@@ -139,9 +137,11 @@ export const useTrainingRouteData = ({
         if (eventKeys.some((key) => eventStateRef.current.processedEventKeys.has(key))) return;
         eventKeys.forEach((key) => eventStateRef.current.processedEventKeys.add(key));
 
-        if (status !== 'PENDING') {
-          const resolvedId = getResolvedRecalculationId(routeEvent.data, fetchedRecalculations);
-          if (resolvedId) removeResolvedRecalculation(resolvedId);
+        const resolvedId = getResolvedRecalculationId(routeEvent.data, fetchedRecalculations);
+        if (status === 'CANCELLED') {
+          if (resolvedId) eventStateRef.current.resolvedRecalculationIds.delete(resolvedId);
+        } else if (status !== 'PENDING' && resolvedId) {
+          removeResolvedRecalculation(resolvedId);
         }
 
         void queryClient.invalidateQueries({ queryKey: routeRecalculationQueryKeys.all });

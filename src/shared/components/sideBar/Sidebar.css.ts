@@ -8,24 +8,71 @@ const menuText = {
   ...vars.typography.body14Medium,
 };
 
-export const container = style({
-  position: 'sticky',
-  top: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  boxShadow: vars.shadow.card,
-  backgroundColor: vars.color.white,
-  padding: '2rem 1.6rem',
-  width: '24rem',
-  height: '100vh',
+export const container = recipe({
+  base: {
+    position: 'sticky',
+    zIndex: 1,
+    top: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    flexShrink: 0,
+    transition: 'width 240ms ease, padding 240ms ease',
+    boxShadow: vars.shadow.card,
+    backgroundColor: vars.color.white,
+    padding: '2rem 1.6rem',
+    width: vars.layout.sidebarWidth,
+    height: '100vh',
+    '@media': {
+      '(prefers-reduced-motion: reduce)': { transition: 'none' },
+    },
+  },
+  variants: {
+    collapsed: {
+      false: {},
+      true: { padding: '2rem 1.2rem', width: vars.layout.sidebarCollapsedWidth },
+    },
+  },
 });
 
-export const header = style({
+export const header = recipe({
+  base: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '1.6rem',
+    minHeight: '4.4rem',
+  },
+  variants: {
+    collapsed: {
+      false: {},
+      true: { justifyContent: 'center' },
+    },
+  },
+});
+
+export const brandLink = style({
   display: 'flex',
   alignItems: 'center',
   gap: '1rem',
-  marginBottom: '1.6rem',
   padding: '0.8rem',
+  minWidth: 0,
+});
+
+export const collapseButton = style({
+  display: 'grid',
+  flexShrink: 0,
+  placeItems: 'center',
+  transition: 'background-color 160ms ease',
+  borderRadius: vars.radius.md,
+  width: '3.2rem',
+  height: '3.2rem',
+  color: vars.color.textMid,
+  selectors: {
+    '&:hover': { backgroundColor: vars.color.gray25 },
+  },
+  '@media': {
+    '(prefers-reduced-motion: reduce)': { transition: 'none' },
+  },
 });
 
 export const logo = style({
@@ -34,7 +81,36 @@ export const logo = style({
   height: '2.8rem',
 });
 
+export const toggleLogo = style([
+  logo,
+  {
+    gridArea: '1 / 1',
+    transition: 'opacity 160ms ease',
+    selectors: {
+      [`${collapseButton}:hover &`]: { opacity: 0 },
+      [`${collapseButton}:focus-visible &`]: { opacity: 0 },
+    },
+    '@media': {
+      '(prefers-reduced-motion: reduce)': { transition: 'none' },
+    },
+  },
+]);
+
+export const togglePanelIcon = style({
+  gridArea: '1 / 1',
+  transition: 'opacity 160ms ease',
+  opacity: 0,
+  selectors: {
+    [`${collapseButton}:hover &`]: { opacity: 1 },
+    [`${collapseButton}:focus-visible &`]: { opacity: 1 },
+  },
+  '@media': {
+    '(prefers-reduced-motion: reduce)': { transition: 'none' },
+  },
+});
+
 export const brand = style({
+  whiteSpace: 'nowrap',
   color: vars.color.textHigh,
   ...vars.typography.titleBold,
 });
@@ -49,24 +125,63 @@ export const list = style({
   gap: '0.4rem',
 });
 
-export const group = style({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.8rem',
+export const group = recipe({
+  base: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.8rem',
+    transition: 'gap 240ms ease',
+    '@media': {
+      '(prefers-reduced-motion: reduce)': { transition: 'none' },
+    },
+  },
+  variants: {
+    collapsed: {
+      false: {},
+      true: { gap: 0 },
+    },
+  },
 });
 
-export const groupList = style({
-  display: 'flex',
-  flexDirection: 'column',
-  marginLeft: '1rem',
+export const groupList = recipe({
+  base: {
+    display: 'flex',
+    flexDirection: 'column',
+    transition: 'margin-left 240ms ease',
+    marginLeft: '1rem',
+    '@media': {
+      '(prefers-reduced-motion: reduce)': { transition: 'none' },
+    },
+  },
+  variants: {
+    collapsed: {
+      false: {},
+      true: { marginLeft: 0 },
+    },
+  },
 });
 
-export const groupLabel = style({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '1.2rem',
-  padding: '1rem 1.2rem',
-  ...menuText,
+export const groupLabel = recipe({
+  base: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1.2rem',
+    transition: 'max-height 240ms ease, padding 240ms ease, opacity 160ms ease',
+    opacity: 1,
+    padding: '1rem 1.2rem',
+    maxHeight: '4rem',
+    overflow: 'hidden',
+    ...menuText,
+    '@media': {
+      '(prefers-reduced-motion: reduce)': { transition: 'none' },
+    },
+  },
+  variants: {
+    collapsed: {
+      false: {},
+      true: { opacity: 0, padding: 0, maxHeight: 0 },
+    },
+  },
 });
 
 export const item = recipe({
@@ -101,6 +216,10 @@ export const item = recipe({
         },
       },
     },
+    collapsed: {
+      false: {},
+      true: { justifyContent: 'center', gap: 0 },
+    },
   },
 });
 
@@ -110,7 +229,15 @@ export const icon = style({
   height: '2rem',
 });
 
-export const footer = style({
-  marginTop: 'auto',
-  padding: '7.2rem 1.2rem 1.2rem',
+export const footer = recipe({
+  base: {
+    marginTop: 'auto',
+    padding: '7.2rem 1.2rem 1.2rem',
+  },
+  variants: {
+    collapsed: {
+      false: {},
+      true: { padding: '7.2rem 0 1.2rem' },
+    },
+  },
 });

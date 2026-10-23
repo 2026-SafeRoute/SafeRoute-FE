@@ -13,6 +13,6 @@ export const HOME_RECENT_TRAINING_TABLE_HEADERS = [
   '날짜',
   '참가',
   '대피시간',
-  '생존율',
+  '대피 성공률',
   '등급',
 ] as const;

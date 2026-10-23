@@ -17,7 +17,7 @@ export const LOGIN_FEATURES = [
     Icon: CameraIcon,
   },
   {
-    title: 'IoT 센서 실시간 연동',
+    title: 'IoT 유도등 대피 안내',
     Icon: WifiIcon,
   },
   {

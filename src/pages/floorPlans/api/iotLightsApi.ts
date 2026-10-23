@@ -1,12 +1,9 @@
 import type {
   AssignCctvRequest,
-  ChangeLightDirectionRequest,
   ConfigureGuidanceRequest,
   CreateIoTLightRequest,
   IoTLightResponse,
-  LightDirectionResponse,
   UpdateIoTLightRequest,
-  UpdatePiEndpointRequest,
 } from '@apis/__generated__/data-contracts';
 import { request as apiRequest, HTTP_METHOD } from '@apis/config/request';
 import { API_ENDPOINTS } from '@apis/constants/endpoints';
@@ -61,28 +58,6 @@ export async function disableIoTLight(lightId: string): Promise<IoTLight> {
   return toIoTLight(light);
 }
 
-export interface LightDirection {
-  lightId: string;
-  direction: 'LEFT' | 'RIGHT' | 'OFF' | 'BOTH';
-  updatedAt: string;
-}
-
-export async function changeLightDirection(
-  lightId: string,
-  direction: 'LEFT' | 'RIGHT' | 'OFF' | 'BOTH',
-): Promise<LightDirection> {
-  const response = await apiRequest<LightDirectionResponse, ChangeLightDirectionRequest>({
-    method: HTTP_METHOD.PATCH,
-    url: API_ENDPOINTS.IOT_LIGHTS.DIRECTION(lightId),
-    body: { direction },
-  });
-  const { lightId: id, direction: dir, updatedAt } = response;
-  if (!id || !dir || !updatedAt) {
-    throw new Error('유도등 방향 응답에 필수 필드가 누락되었습니다.');
-  }
-  return { lightId: id, direction: dir, updatedAt };
-}
-
 export async function configureLightGuidance(
   lightId: string,
   body: ConfigureGuidanceRequest,
@@ -91,18 +66,6 @@ export async function configureLightGuidance(
     method: HTTP_METHOD.PATCH,
     url: API_ENDPOINTS.IOT_LIGHTS.GUIDANCE(lightId),
     body,
-  });
-  return toIoTLight(light);
-}
-
-export async function updateLightPiEndpoint(
-  lightId: string,
-  piEndpoint: string,
-): Promise<IoTLight> {
-  const light = await apiRequest<IoTLightResponse, UpdatePiEndpointRequest>({
-    method: HTTP_METHOD.PATCH,
-    url: API_ENDPOINTS.IOT_LIGHTS.PI_ENDPOINT(lightId),
-    body: { piEndpoint },
   });
   return toIoTLight(light);
 }
