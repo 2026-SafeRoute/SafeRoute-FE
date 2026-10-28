@@ -1228,6 +1228,17 @@ export interface MonitoringCameraResponse {
    */
   name?: string;
   /**
+   * 최신 프레임 관측값을 서버가 받은 시각(Unix epoch milliseconds). capturedAt은 Pi 시계라 지연 측정은 이 값을 기준으로 한다. 캡처가 없거나 예전 데이터면 null
+   * @format int64
+   * @example 1787722096200
+   */
+  receivedAt?: number;
+  /**
+   * 마지막 캡처를 서버가 받은 뒤 stateStaleAfterSec가 지났거나 캡처가 아직 없으면 true. true면 thumbnailUrl을 라이브 화면이 아니라 '끊김/오래된 이미지'로 표시해야 한다
+   * @example false
+   */
+  stale?: boolean;
+  /**
    * 최신 캡처 이미지의 S3 presigned GET URL. 캡처가 없으면 null
    * @example "https://example-bucket.s3.amazonaws.com/training/session/monitoring/CCTV_001/frame.jpg"
    */
@@ -1497,6 +1508,12 @@ export interface MonitoringFrameResponse {
    */
   imageUrl?: string;
   /**
+   * 이 프레임 관측값을 서버가 받은 시각(Unix epoch milliseconds). capturedAt은 Pi 시계라 지연 측정은 이 값을 기준으로 한다. 예전 데이터면 null
+   * @format int64
+   * @example 1787722096200
+   */
+  receivedAt?: number;
+  /**
    * imageUrl 만료 시각(Unix epoch milliseconds). imageUrl이 없으면 null
    * @format int64
    * @example 1787725695000
@@ -1654,7 +1671,6 @@ export interface ReportObservationRequest {
   eventId: string;
   /** @format int32 */
   frameHeadcount?: number;
-  frameHeadcountValid?: boolean;
   headcountValid?: boolean;
   monitoringImageKey?: string;
   /** @format int32 */

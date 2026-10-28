@@ -31,6 +31,36 @@ interface CameraRef {
   code: string;
 }
 
+// 개발 환경에서 Pi·서버·WebSocket 중 어느 구간이 느린지 바로 구분할 수 있게 함. capturedAt은
+// Pi 시계이므로 음수가 나오면 장비·서버·브라우저의 NTP/시스템 시각부터 확인해야 함
+const logObservationDeliveryTiming = (
+  data: CongestionUpdatedEventData,
+  clientReceivedAt: number,
+) => {
+  if (!import.meta.env.DEV) return;
+  if (
+    ![data.capturedAt, data.receivedAt, data.publishedAt, clientReceivedAt].every(Number.isFinite)
+  ) {
+    return;
+  }
+
+  const piAndS3Ms = data.receivedAt - data.capturedAt;
+  const backendMs = data.publishedAt - data.receivedAt;
+  const websocketMs = clientReceivedAt - data.publishedAt;
+  const totalMs = clientReceivedAt - data.capturedAt;
+
+  // eslint-disable-next-line no-console -- 개발 환경의 관측값 전달 구간별 지연 확인용
+  console.info('[훈련 모니터링] CONGESTION_UPDATED 전달 시간', {
+    eventId: data.eventId,
+    cctvCode: data.cctvCode,
+    piAndS3Ms,
+    backendMs,
+    websocketMs,
+    totalMs,
+    clockSkewDetected: piAndS3Ms < 0 || backendMs < 0 || websocketMs < 0,
+  });
+};
+
 // 훈련분석 화면(카메라 목록·프레임 상세)의 실시간 갱신을 담당하는 WebSocket 구독.
 // REST 폴링은 그대로 두고(WS가 잠깐 끊겨도 최신 상태로 수렴하는 안전망), 이 훅은 그 사이의
 // 지연을 줄이는 역할만 함 — 즉 이 훅이 실패해도 화면이 완전히 멈추지는 않음
@@ -45,13 +75,14 @@ export const useTrainingMonitoringSocket = (
 
   useTrainingSessionSocket({
     sessionId,
-    onEvent: (event) => {
+    onEvent: (event, clientReceivedAt) => {
       if (!sessionId) return;
 
       if (event.eventType === TRAINING_EVENT_TYPE.CONGESTION_UPDATED) {
         const data = event.data as CongestionUpdatedEventData;
         if (!data?.eventId || processedEventIdsRef.current.has(data.eventId)) return;
         processedEventIdsRef.current.add(data.eventId);
+        logObservationDeliveryTiming(data, clientReceivedAt);
 
         const cctv = cameras.find((c) => c.code === data.cctvCode);
 
@@ -82,10 +113,16 @@ export const useTrainingMonitoringSocket = (
 
         // 이미지가 새로 붙은 관측치면 카메라 목록 썸네일·해당 카메라 프레임 첫 페이지를 다시 조회
         if (data.hasMonitoringImage && cctv) {
-          void queryClient.invalidateQueries({ queryKey: monitoringQueryKeys.cameras(sessionId) });
-          void queryClient.invalidateQueries({
-            queryKey: monitoringQueryKeys.frameLists(sessionId, cctv.cctvId),
-          });
+          // 같은 시점에 안전망 폴링이 이미 진행 중이면 요청을 취소하고 다시 시작하지 않음. 진행 중인
+          // 조회 결과를 먼저 반영하고, 서버 반영이 늦은 경우는 다음 안전망 폴링에서 수렴시킴
+          void queryClient.invalidateQueries(
+            { queryKey: monitoringQueryKeys.cameras(sessionId) },
+            { cancelRefetch: false },
+          );
+          void queryClient.invalidateQueries(
+            { queryKey: monitoringQueryKeys.frameLists(sessionId, cctv.cctvId) },
+            { cancelRefetch: false },
+          );
         }
         return;
       }

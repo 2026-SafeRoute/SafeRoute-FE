@@ -4,6 +4,7 @@ import CameraIcon from '@assets/icons/ic-camera.svg?react';
 
 import * as styles from './CameraSidebar.css';
 import { groupCamerasByFloor } from '../../utils/trainingAnalysis';
+import StableMonitoringImage from '../StableMonitoringImage/StableMonitoringImage';
 
 import type { MonitoringCamera } from '../../types/trainingAnalysis';
 
@@ -41,7 +42,13 @@ const CameraSidebar = ({ cameras, activeCctvId, onSelect }: CameraSidebarProps) 
               >
                 <span className={styles.itemThumb}>
                   {camera.thumbnailUrl ? (
-                    <img src={camera.thumbnailUrl} alt="" className={styles.itemThumbImg} />
+                    <StableMonitoringImage
+                      src={camera.thumbnailUrl}
+                      resourceKey={`${camera.cctvId}:${camera.capturedAt ?? 'unknown'}`}
+                      expiresAt={camera.urlExpiresAt}
+                      alt=""
+                      className={styles.itemThumbImg}
+                    />
                   ) : (
                     <CameraIcon width={14} height={14} className={styles.itemThumbIcon} />
                   )}

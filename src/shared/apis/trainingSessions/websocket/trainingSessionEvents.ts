@@ -5,7 +5,6 @@ import type { TrainingSessionStatus } from '@apis/trainingSessions/trainingSessi
 export const TRAINING_EVENT_TYPE = {
   STATUS_UPDATED: 'TRAINING_STATUS_UPDATED',
   CONGESTION_UPDATED: 'CONGESTION_UPDATED',
-  CONGESTION_IMAGE_UPDATED: 'CONGESTION_IMAGE_UPDATED',
   CONGESTION_EVENT_RECEIVED: 'CONGESTION_EVENT_RECEIVED',
   CONGESTION_EVENT_IMAGE_UPDATED: 'CONGESTION_EVENT_IMAGE_UPDATED',
   // AI_ANALYSIS_STARTED·ROUTE_DEVIATION_DETECTED 등 이벤트 타임라인용 이벤트가 이 봉투로 옴
@@ -41,7 +40,10 @@ export interface CongestionUpdatedEventData {
   congestionLevel: 'NORMAL' | 'CAUTION' | 'CROWDED' | 'VERY_CROWDED';
   windowStart: number;
   windowEnd: number;
+  // Pi 캡처 시각 → 서버 수신 시각 → WebSocket 발행 시각을 구간별로 비교할 수 있도록 모두 epoch ms
   capturedAt: number;
+  receivedAt: number;
+  publishedAt: number;
   configVersion: number;
   hasMonitoringImage: boolean;
 }

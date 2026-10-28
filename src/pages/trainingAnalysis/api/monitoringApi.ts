@@ -54,6 +54,7 @@ const toMonitoringCamera = (response: MonitoringCameraResponse): MonitoringCamer
   if (!cctvId || !code || !name || !buildingName || !floorName || !location) {
     throw new Error('모니터링 카메라 응답에 필수 필드가 누락되었습니다.');
   }
+  const capturedAt = response.capturedAt ?? null;
   return {
     cctvId,
     code,
@@ -62,7 +63,10 @@ const toMonitoringCamera = (response: MonitoringCameraResponse): MonitoringCamer
     floorName,
     location,
     thumbnailUrl: response.thumbnailUrl ?? null,
-    capturedAt: response.capturedAt ?? null,
+    capturedAt,
+    receivedAt: response.receivedAt ?? null,
+    // 구버전 응답처럼 stale이 없으면 캡처 존재 여부로만 최소한의 호환 처리를 함
+    stale: response.stale ?? capturedAt === null,
     urlExpiresAt: response.urlExpiresAt ?? null,
   };
 };
@@ -82,6 +86,7 @@ const toMonitoringFrame = (response: MonitoringFrameResponseExt): MonitoringFram
   return {
     frameId,
     capturedAt,
+    receivedAt: response.receivedAt ?? null,
     windowStart: response.windowStart ?? null,
     windowEnd: response.windowEnd ?? null,
     imageUrl: response.imageUrl ?? null,

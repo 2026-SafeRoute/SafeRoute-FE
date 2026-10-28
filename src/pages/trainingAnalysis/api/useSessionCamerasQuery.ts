@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { LIVE_SESSION_POLL_INTERVAL_MS } from '@pages/trainingAnalysis/constants/trainingAnalysis';
+import { LIVE_MONITORING_IMAGE_POLL_INTERVAL_MS } from '@pages/trainingAnalysis/constants/trainingAnalysis';
 
 import { getSessionCameras } from './monitoringApi';
 import { monitoringQueryKeys } from './monitoringQueryKeys';
@@ -15,5 +15,5 @@ export const useSessionCamerasQuery = (
     queryKey: monitoringQueryKeys.cameras(sessionId ?? ''),
     queryFn: ({ signal }) => getSessionCameras(sessionId as string, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: options?.live ? LIVE_SESSION_POLL_INTERVAL_MS : false,
+    refetchInterval: options?.live ? LIVE_MONITORING_IMAGE_POLL_INTERVAL_MS : false,
   });
