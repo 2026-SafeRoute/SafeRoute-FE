@@ -7,6 +7,7 @@ import type { StatusBadgeColor } from '@components/chip/StatusBadge';
 import * as styles from './CameraCard.css';
 import { CONGESTION_LEVEL_LABEL } from '../../types/trainingAnalysis';
 import { formatCapturedTime } from '../../utils/trainingAnalysis';
+import StableMonitoringImage from '../StableMonitoringImage/StableMonitoringImage';
 
 import type { CctvCurrentState, MonitoringCamera } from '../../types/trainingAnalysis';
 
@@ -66,9 +67,11 @@ const CameraCard = ({ camera, currentState, onClick }: CameraCardProps) => {
         {hasThumbnail ? (
           <>
             {camera.thumbnailUrl ? (
-              <img
+              <StableMonitoringImage
                 className={styles.thumbImg}
                 src={camera.thumbnailUrl}
+                resourceKey={`${camera.cctvId}:${camera.capturedAt ?? 'unknown'}`}
+                expiresAt={camera.urlExpiresAt}
                 alt={`${camera.name} 최신 캡처 프레임`}
                 loading="lazy"
               />
