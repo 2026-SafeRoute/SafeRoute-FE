@@ -43,20 +43,21 @@ const CameraCard = ({ camera, currentState, onClick }: CameraCardProps) => {
   const hasThumbnail = camera.capturedAt !== null;
   const capturedTime = formatCapturedTime(camera.capturedAt);
 
-  // [촬영용] stale(갱신 지연) 판정만 무시 — 서버 stale/lastDetectedAt이 REST 폴링과 WS 사이에서
-  // 계속 엇갈려 '갱신 지연' ↔ 혼잡 배지가 5초 주기로 깜빡였음. 혼잡 단계 값이 오면 그대로 보여주고,
-  // 아직 값이 없을 때만 '정보 없음'을 표시한다.
-  const congestionBadge = !currentState?.congestionLevel
-    ? { label: '정보 없음', color: 'neutral' as const }
-    : {
-        label: CONGESTION_LEVEL_LABEL[currentState.congestionLevel],
-        color: CONGESTION_BADGE_COLOR[currentState.congestionLevel],
-      };
+  // 카메라 응답의 stale은 최신 이미지 수신 시각 기준이라 혼잡 상태보다 우선 표시함. 썸네일이
+  // 있으면 마지막 이미지를 유지하되 오래된 이미지임을 알리고, 한 번도 받은 적 없으면 끊김으로 표시
+  const congestionBadge: { label: string; color: StatusBadgeColor } = camera.stale
+    ? { label: hasThumbnail ? '오래된 이미지' : '연결 끊김', color: 'orange' }
+    : !currentState?.congestionLevel
+      ? { label: '정보 없음', color: 'neutral' }
+      : {
+          label: CONGESTION_LEVEL_LABEL[currentState.congestionLevel],
+          color: CONGESTION_BADGE_COLOR[currentState.congestionLevel],
+        };
 
   return (
     <button type="button" className={styles.card} onClick={() => onClick(camera)}>
       <div className={styles.thumb}>
-        {currentState ? (
+        {camera.stale || currentState ? (
           <StatusBadge
             className={styles.congestionBadge}
             label={congestionBadge.label}

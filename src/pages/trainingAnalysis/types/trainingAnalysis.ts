@@ -52,6 +52,8 @@ export interface MonitoringCamera {
   location: string;
   thumbnailUrl: string | null;
   capturedAt: number | null; // epoch ms, 캡처 프레임 없으면 null
+  receivedAt: number | null; // epoch ms, 서버가 최신 프레임 관측값을 받은 시각
+  stale: boolean; // 최신 캡처가 없거나 서버의 stale 기준 시간을 넘겼으면 true
   urlExpiresAt: number | null;
 }
 
@@ -71,6 +73,7 @@ export const CONGESTION_LEVEL_LABEL: Record<CongestionLevel, string> = {
 export interface MonitoringFrame {
   frameId: string;
   capturedAt: number;
+  receivedAt: number | null;
   windowStart: number | null;
   windowEnd: number | null;
   imageUrl: string | null;

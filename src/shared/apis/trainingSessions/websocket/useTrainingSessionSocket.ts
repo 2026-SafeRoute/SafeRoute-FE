@@ -16,7 +16,7 @@ import type { TrainingSessionEvent } from './trainingSessionEvents';
 // WebSocket 구독 대상 세션과 이벤트 처리 함수
 interface UseTrainingSessionSocketOptions {
   sessionId?: string | null;
-  onEvent?: (event: TrainingSessionEvent) => void;
+  onEvent?: (event: TrainingSessionEvent, clientReceivedAt: number) => void;
 }
 
 // 세션별 STOMP 구독 경로 생성
@@ -52,6 +52,8 @@ export const useTrainingSessionSocket = ({
       heartbeatOutgoing: 10_000,
       onConnect: () => {
         client.subscribe(getTrainingSessionTopic(sessionId), (message) => {
+          // JSON 해석과 후속 캐시 갱신 시간을 제외한 WebSocket 도착 시점을 기록
+          const clientReceivedAt = Date.now();
           try {
             const event = JSON.parse(message.body) as TrainingSessionEvent;
 
@@ -82,7 +84,7 @@ export const useTrainingSessionSocket = ({
               void Promise.all(invalidations);
             }
 
-            onEventRef.current?.(event);
+            onEventRef.current?.(event, clientReceivedAt);
           } catch (error) {
             if (import.meta.env.DEV) {
               console.error('훈련 WebSocket 이벤트를 해석하지 못했습니다.', error);
