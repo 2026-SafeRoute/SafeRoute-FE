@@ -14,8 +14,13 @@ export const VIEWABLE_SESSION_STATUSES = [
   'RUNNING',
 ] as const satisfies readonly TrainingSessionStatus[];
 
-// 진행 중 훈련은 카메라 목록·프레임·이벤트를 이 주기로 다시 조회해 최신 프레임을 반영함
+// 진행 중 훈련의 상태·이벤트를 다시 확인하는 기본 주기
 export const LIVE_SESSION_POLL_INTERVAL_MS = 1000;
+
+// 카메라·프레임은 WebSocket 이벤트로 즉시 갱신하고, 폴링은 이벤트 누락 시 복구하는 안전망으로만
+// 사용함. 서버의 기본 프레임 저장 주기(5초)보다 자주 전체 목록을 다시 받아도 새 프레임은 늘지 않고
+// presigned URL만 바뀌어 기존 이미지까지 다시 내려받을 수 있으므로 이미지 조회 주기는 분리함
+export const LIVE_MONITORING_IMAGE_POLL_INTERVAL_MS = 5000;
 
 export const isLiveSessionStatus = (status: TrainingSessionStatus | undefined) =>
   status === 'RUNNING';

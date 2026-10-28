@@ -82,10 +82,16 @@ export const useTrainingMonitoringSocket = (
 
         // 이미지가 새로 붙은 관측치면 카메라 목록 썸네일·해당 카메라 프레임 첫 페이지를 다시 조회
         if (data.hasMonitoringImage && cctv) {
-          void queryClient.invalidateQueries({ queryKey: monitoringQueryKeys.cameras(sessionId) });
-          void queryClient.invalidateQueries({
-            queryKey: monitoringQueryKeys.frameLists(sessionId, cctv.cctvId),
-          });
+          // 같은 시점에 안전망 폴링이 이미 진행 중이면 요청을 취소하고 다시 시작하지 않음. 진행 중인
+          // 조회 결과를 먼저 반영하고, 서버 반영이 늦은 경우는 다음 안전망 폴링에서 수렴시킴
+          void queryClient.invalidateQueries(
+            { queryKey: monitoringQueryKeys.cameras(sessionId) },
+            { cancelRefetch: false },
+          );
+          void queryClient.invalidateQueries(
+            { queryKey: monitoringQueryKeys.frameLists(sessionId, cctv.cctvId) },
+            { cancelRefetch: false },
+          );
         }
         return;
       }

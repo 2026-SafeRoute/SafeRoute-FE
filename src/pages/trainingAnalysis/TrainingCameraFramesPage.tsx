@@ -35,6 +35,7 @@ import { useTrainingMonitoringSocket } from './api/useTrainingMonitoringSocket';
 import { useTrainingScenarioId } from './api/useTrainingScenarioId';
 import CameraSidebar from './components/CameraSidebar/CameraSidebar';
 import SessionInfoCard from './components/SessionInfoCard/SessionInfoCard';
+import StableMonitoringImage from './components/StableMonitoringImage/StableMonitoringImage';
 import {
   EVENT_SEVERITY_COLOR,
   EVENT_TYPE_LABEL,
@@ -365,9 +366,11 @@ const TrainingCameraFramesPage = () => {
               <>
                 <div className={styles.viewer}>
                   {currentFrame.imageUrl ? (
-                    <img
+                    <StableMonitoringImage
                       className={styles.viewerImg}
                       src={currentFrame.imageUrl}
+                      resourceKey={currentFrame.frameId}
+                      expiresAt={currentFrame.urlExpiresAt}
                       alt={`${camera.code} ${formatCapturedTime(currentFrame.capturedAt)} 프레임`}
                     />
                   ) : (
@@ -433,7 +436,13 @@ const TrainingCameraFramesPage = () => {
                         onClick={() => selectFrame(frame.frameId)}
                       >
                         {frame.imageUrl && (
-                          <img className={styles.filmstripThumb} src={frame.imageUrl} alt="" />
+                          <StableMonitoringImage
+                            className={styles.filmstripThumb}
+                            src={frame.imageUrl}
+                            resourceKey={frame.frameId}
+                            expiresAt={frame.urlExpiresAt}
+                            alt=""
+                          />
                         )}
                         <span className={styles.filmstripIndex}>{index + 1}</span>
                         {NEEDS_ATTENTION.includes(frame.congestionLevel) && (
